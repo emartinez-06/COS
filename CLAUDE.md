@@ -22,7 +22,7 @@ It is the source of truth for session-to-session continuity and must be maintain
 
 Also perform the close protocol proactively at the end of any session that changed code or made decisions, without waiting to be asked.
 
-Enforcement: hooks in .claude/settings.json flag any 5+ minute session that ends without updating memory/CHANGELOG.md by appending to memory/UNCLOSED.md, and surface that file at the next session start.
+Enforcement: local hooks (in the gitignored .claude/settings.local.json) may flag any 5+ minute session that ends without updating memory/CHANGELOG.md by appending to memory/UNCLOSED.md, and surface that file at the next session start.
 If memory/UNCLOSED.md exists, reconstruct the missing memory updates (git log, recent file changes) and delete it.
 
 ## The two ARCHITECTURE files

@@ -12,3 +12,6 @@ coverage/
 
 # Private session memory (see CLAUDE.md session protocol)
 memory/
+
+# Personal Claude Code settings
+.claude/settings.local.json
