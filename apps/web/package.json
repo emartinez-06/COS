@@ -1,0 +1,7 @@
+{
+  "name": "@cos/web",
+  "private": true,
+  "version": "0.0.0",
+  "description": "COS web app (Next.js)",
+  "license": "AGPL-3.0-only"
+}

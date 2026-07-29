@@ -1,0 +1,7 @@
+{
+  "name": "@cos/core",
+  "private": true,
+  "version": "0.0.0",
+  "description": "COS domain types, validation, and shared logic",
+  "license": "AGPL-3.0-only"
+}

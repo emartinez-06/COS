@@ -1,0 +1,10 @@
+{
+  "name": "cos",
+  "private": true,
+  "description": "Club Organizational Software: an open-source connective layer for student clubs",
+  "license": "AGPL-3.0-only",
+  "packageManager": "pnpm@10.13.1",
+  "engines": {
+    "node": ">=22"
+  }
+}

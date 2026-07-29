@@ -1,0 +1,7 @@
+{
+  "name": "@cos/api",
+  "private": true,
+  "version": "0.0.0",
+  "description": "COS API: auth, clubs, members, documents, audit ledger, realtime feed",
+  "license": "AGPL-3.0-only"
+}

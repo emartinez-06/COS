@@ -1,0 +1,7 @@
+{
+  "name": "@cos/groupme-bot",
+  "private": true,
+  "version": "0.0.0",
+  "description": "COS GroupMe bot bridge: announcements out, commands and activity in",
+  "license": "AGPL-3.0-only"
+}
