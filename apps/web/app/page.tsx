@@ -1,41 +1,16 @@
-'use client';
-
 /**
- * The dashboard is the calendar for now. When v0.2 adds more surfaces this
- * becomes a redirect to /calendar and each surface gets its own route.
+ * The dashboard root redirects to the calendar.
  *
- * The event store mounts here rather than in the root providers because it is
- * scoped to one club, and the club is only known once AuthGuard has confirmed
- * a session with at least one membership.
+ * The calendar is the club's home surface, but it is no longer the only one,
+ * so it gets a real route rather than squatting on `/`. Redirecting here keeps
+ * every existing link to `/` working - including TopNav's own heading.
+ *
+ * A server component on purpose: this resolves before any client bundle runs,
+ * so there is no flash of an empty dashboard before the route changes.
  */
 
-import {CalendarView} from '../components/calendar/calendar-view';
-import {AuthGuard} from '../components/shell/auth-guard';
-import {DashboardShell} from '../components/shell/dashboard-shell';
-import {EventStoreProvider} from '../lib/event-store';
-import {useSession} from '../lib/session';
+import {redirect} from 'next/navigation';
 
-function Dashboard() {
-  const {activeClub} = useSession();
-
-  // AuthGuard has already returned early when there is no club.
-  if (!activeClub) {
-    return null;
-  }
-
-  return (
-    <EventStoreProvider clubId={activeClub.clubId}>
-      <DashboardShell>
-        <CalendarView />
-      </DashboardShell>
-    </EventStoreProvider>
-  );
-}
-
-export default function DashboardPage() {
-  return (
-    <AuthGuard>
-      <Dashboard />
-    </AuthGuard>
-  );
+export default function HomePage() {
+  redirect('/calendar');
 }

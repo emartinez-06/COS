@@ -25,8 +25,8 @@ import {
   useMemo,
   useState,
 } from 'react';
-import type {Capability, Role} from '@cos/core';
-import {can} from '@cos/core';
+import type {Capability, Position, Role} from '@cos/core';
+import {can, memberTitle} from '@cos/core';
 
 import {API_URL, apiFetch, authClient} from './auth-client';
 
@@ -35,6 +35,8 @@ export interface ClubMembership {
   name: string;
   slug: string;
   role: Role;
+  /** The officer's job title, or null. Display only - `role` decides access. */
+  position: Position | null;
   capabilities: Capability[];
 }
 
@@ -54,8 +56,15 @@ interface Session {
   memberships: ClubMembership[];
   /** The club currently being viewed, or null when they belong to none. */
   activeClub: ClubMembership | null;
-  /** The viewer's role in the active club. */
+  /** The viewer's role in the active club. This is what gates anything. */
   role: Role | null;
+  /** The viewer's job title in the active club, or null. Never gates anything. */
+  position: Position | null;
+  /**
+   * What to call the viewer on screen: their position if they have one, their
+   * role otherwise. "Treasurer" rather than "Officer".
+   */
+  title: string | null;
   /** Set when the session could not be loaded at all (API down, usually). */
   error: string | null;
   selectClub: (clubId: string) => void;
@@ -140,6 +149,10 @@ export function SessionProvider({children}: {children: React.ReactNode}) {
       memberships,
       activeClub,
       role: activeClub?.role ?? null,
+      position: activeClub?.position ?? null,
+      title: activeClub
+        ? memberTitle(activeClub.role, activeClub.position)
+        : null,
       error,
       selectClub: setSelectedClubId,
       refresh,

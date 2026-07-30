@@ -9,9 +9,15 @@ import '../theme/cos.css';
 import {Providers} from './providers';
 
 export const metadata: Metadata = {
-  title: 'COS - Club Calendar',
+  // A template rather than a fixed string: the calendar is no longer the only
+  // surface, and a tab reading "Club Calendar" while the treasury is open is
+  // wrong in the one place a user scans to find the right window.
+  title: {
+    default: 'COS',
+    template: '%s - COS',
+  },
   description:
-    'Club Organizational Software: the shared calendar for club officers and members.',
+    'Club Organizational Software: the shared workspace for club officers and members.',
 };
 
 export const viewport: Viewport = {

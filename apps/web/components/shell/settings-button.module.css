@@ -1,0 +1,38 @@
+/*
+ * The settings gear turns when you reach for it.
+ *
+ * The icon rotates, not the button, because rotating the button box would take
+ * its focus ring and hover background round with it and read as a glitch. The
+ * gesture is the one the object implies: a cog turns.
+ *
+ * Uses Astryx's own motion tokens rather than hand-picked numbers - fast band
+ * (175ms) because this is a micro-interaction, and anything slower feels like
+ * the interface is lagging behind the cursor.
+ */
+
+.settingsButton svg {
+  transition:
+    transform var(--duration-fast) var(--ease-standard);
+}
+
+.settingsButton:hover svg {
+  transform: rotate(45deg);
+}
+
+/* Press goes further and dips slightly, so the click has a bottom to it. */
+.settingsButton:active svg {
+  transform: rotate(90deg) scale(0.9);
+}
+
+/*
+ * Someone who has asked for less motion still gets the hover and press states
+ * from the button itself; they just do not get the spin.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .settingsButton svg,
+  .settingsButton:hover svg,
+  .settingsButton:active svg {
+    transition: none;
+    transform: none;
+  }
+}
