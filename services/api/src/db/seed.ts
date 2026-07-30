@@ -17,14 +17,13 @@ import {env} from '../env.js';
 import {closeDatabase, db} from './client.js';
 import {clubMembers, clubs} from './schema/club.js';
 import {user} from './schema/auth.js';
+import {events} from './schema/event.js';
+import {buildSeedEventRows} from './seed-events.js';
 
 /**
- * Deliberately matches `DEMO_CLUB_ID` in apps/web/lib/seed-events.ts.
- *
- * The dashboard still reads events from an in-memory repository keyed by club
- * id, so a mismatch here renders an empty calendar for a club that plainly has
- * events. This alignment becomes unnecessary the moment events are persisted
- * through the API, and the web-side fixture goes away with it.
+ * The demo club. The id no longer has to match anything on the web side: the
+ * dashboard reads events over the API and gets the club id from the session,
+ * so this is now just a fixed id that makes re-seeding idempotent.
  */
 const CLUB = {
   id: 'club_baylor_acm',
@@ -72,6 +71,49 @@ async function ensureUser(person: (typeof PEOPLE)[number]): Promise<string> {
   return result.user.id;
 }
 
+/**
+ * Puts the demo calendar in place, attributed to the officer.
+ *
+ * Re-seeding *updates* rather than skipping, which is the one place this seed
+ * is deliberately not "insert or ignore". The rows are positioned relative to
+ * the day the seed runs, so a database seeded three weeks ago would otherwise
+ * show a calendar where every event is in the past - which is exactly the
+ * empty-looking dashboard this fixture exists to prevent.
+ *
+ * Only the seeded ids are touched, so events an officer created by hand are
+ * left alone.
+ */
+async function seedEvents(authorId: string | undefined): Promise<void> {
+  if (!authorId) {
+    console.log('  no officer to attribute events to, skipping events');
+    return;
+  }
+
+  const rows = buildSeedEventRows(CLUB.id, authorId);
+
+  for (const row of rows) {
+    await db
+      .insert(events)
+      .values(row)
+      .onConflictDoUpdate({
+        target: events.id,
+        set: {
+          startsAt: row.startsAt,
+          endsAt: row.endsAt,
+          title: row.title,
+          description: row.description,
+          location: row.location,
+          speaker: row.speaker,
+          links: row.links,
+          category: row.category,
+          visibility: row.visibility,
+        },
+      });
+  }
+
+  console.log(`  ${rows.length} events ready, anchored to today`);
+}
+
 async function main(): Promise<void> {
   if (env.NODE_ENV === 'production') {
     throw new Error('Refusing to seed a production database.');
@@ -85,8 +127,11 @@ async function main(): Promise<void> {
     .onConflictDoNothing({target: clubs.id});
   console.log(`  club ${CLUB.slug} ready`);
 
+  const userIdByEmail = new Map<string, string>();
+
   for (const person of PEOPLE) {
     const userId = await ensureUser(person);
+    userIdByEmail.set(person.email, userId);
     await db
       .insert(clubMembers)
       .values({userId, clubId: CLUB.id, role: person.role})
@@ -95,6 +140,8 @@ async function main(): Promise<void> {
       });
     console.log(`  ${person.email} is ${person.role} of ${CLUB.slug}`);
   }
+
+  await seedEvents(userIdByEmail.get('officer@example.com'));
 
   console.log('\nSign in with:');
   for (const person of PEOPLE) {
