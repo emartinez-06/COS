@@ -92,11 +92,24 @@ It is a library rather than a service, so its tables live in our own Postgres an
 Sessions are a cookie plus a database row rather than a JWT, so they can be revoked and so server rendering can read them directly.
 
 **`packages/core` owns authorization**: `can(role, capability)` and nothing else.
-Keeping it a pure function is what lets the same check run in a React component, an API handler, the GroupMe bot, and a unit test with no database.
-It also means an identity library that disappoints can be replaced without touching the permission model.
+
+This follows from the member model rather than being an independent preference.
+better-auth's access control is part of its organization plugin: it reads a role from that plugin's `member` table, scoped to a single active organization per session.
+Because clubs are our own tables (see below), there is no such table for it to read, so its access control was never available to us.
+
+The deeper reason it belongs here anyway is that authorization is domain logic.
+"An officer may draft an announcement" is a rule about clubs, and it will grow into rules like "a treasurer may approve expenses under a threshold".
+Those belong with the domain model, not in a session library's configuration.
+
+Separating authentication from authorization is the ordinary practice, not a deviation from it.
+The parts that are genuinely dangerous to implement yourself - password hashing, session issuance and revocation, cookie attributes, CSRF - all belong to better-auth.
+What stays here is a lookup from a role to a set of capabilities, with no cryptography and no subtle failure mode.
 
 Authorization is enforced in the API, against the role on the requesting user's membership row for the club the request touches.
 The client-side check exists to hide controls a viewer may not use, never to protect anything.
+
+The failure mode to guard against is not which module owns the permission map; it is a route that forgets to ask.
+That risk is the same whatever library is used, so enforcement belongs at the router and is worth testing directly.
 
 ### The member model is person-first
 
