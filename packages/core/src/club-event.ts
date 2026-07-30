@@ -13,8 +13,7 @@
 import {z} from 'zod';
 
 /** An ISO 8601 instant, e.g. `2026-08-14T18:00:00.000Z`. */
-export const isoInstantSchema = z
-  .string()
+export const isoInstantSchema = z.iso
   .datetime({offset: true})
   .describe('ISO 8601 instant');
 
@@ -31,7 +30,7 @@ export type Speaker = z.infer<typeof speakerSchema>;
 export const eventLinkSchema = z.object({
   /** Human label; what the member actually sees and clicks. */
   label: z.string().min(1, 'Link label is required'),
-  url: z.string().url('Must be a valid URL'),
+  url: z.url('Must be a valid URL'),
 });
 
 export type EventLink = z.infer<typeof eventLinkSchema>;
