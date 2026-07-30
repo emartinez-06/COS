@@ -1,0 +1,12 @@
+/**
+ * @cos/core - domain types, validation, and ports.
+ *
+ * Rule from docs/ARCHITECTURE.md: this package imports nothing from apps or
+ * services, and performs no I/O. Everything here is a type, a schema, or a
+ * pure function.
+ */
+
+export * from './club-event';
+export * from './role';
+export * from './ports';
+export * from './announcement';
