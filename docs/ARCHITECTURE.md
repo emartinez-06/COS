@@ -21,6 +21,7 @@ Retrofitting shared packages into a standalone Next.js app when the desktop phas
 |---|---|---|
 | Language | TypeScript everywhere | One language across web, desktop shell, mobile, API, and bot maximizes code reuse and keeps contributor barrier low |
 | Web frontend | Next.js (React) | First-class web experience, SEO for public club pages, largest contributor pool |
+| Design system | [Astryx](https://github.com/facebook/astryx) (`@astryxdesign/core`) | 90+ accessible, themeable components so the UI is composed rather than hand-rolled; ships prebuilt CSS, so it adds no compiler to the build |
 | API | Dedicated TypeScript service | Self-hostable with no vendor coupling; the API is a hard boundary so every future platform is just another client |
 | Database | Postgres | Relational integrity for the audit ledger, row-level multi-tenancy, boring and proven |
 | File storage | S3-compatible object storage | Document hub needs blob storage; S3 compatibility means AWS, R2, or MinIO (self-hosted) all work |
@@ -48,6 +49,23 @@ Rules that keep this healthy:
 
 Workspace tooling is pnpm workspaces.
 Task orchestration (Turborepo or plain pnpm scripts) is an open question until there are enough packages for it to matter.
+
+### Apps depend on ports, not transports
+
+`packages/core` declares interfaces for the data an app needs, and apps import only those interfaces.
+`EventRepository` is the first: the calendar UI knows how to list, create, and subscribe to events, and knows nothing about where they live.
+
+This is what makes the boundary rules above enforceable rather than aspirational.
+It also lets a surface be built and reviewed before the transport behind it exists, which is how the club calendar shipped ahead of the API.
+Ports carry a `subscribe` method where live updates matter, so one interface covers both a local store and a WebSocket feed.
+
+The rule to hold to: swapping an implementation must not change a component.
+If it would, the port is wrong and gets fixed rather than worked around.
+
+### Permissions are capabilities, not roles
+
+Components ask whether the current viewer *may do a thing* (`can(role, 'event:create')`), never what role they hold.
+Roles are per-club and the set will grow past officer and member, so the role-to-capability mapping lives in exactly one place in `packages/core`.
 
 ## Integration philosophy
 
