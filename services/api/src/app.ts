@@ -17,6 +17,7 @@ import {withSession} from './auth/middleware.js';
 import {env, isProduction} from './env.js';
 import {eventRoutes} from './routes/events.js';
 import {healthRoutes} from './routes/health.js';
+import {invitationRoutes} from './routes/invitations.js';
 import {sessionRoutes} from './routes/session.js';
 
 export const app = new OpenAPIHono<AppEnv>({
@@ -71,6 +72,7 @@ app.use('*', withSession);
 app.route('/', healthRoutes);
 app.route('/api', sessionRoutes);
 app.route('/api', eventRoutes);
+app.route('/api', invitationRoutes);
 
 app.doc('/openapi.json', {
   openapi: '3.1.0',

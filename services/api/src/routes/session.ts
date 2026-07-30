@@ -7,7 +7,12 @@
  */
 
 import {OpenAPIHono, createRoute, z} from '@hono/zod-openapi';
-import {capabilitySchema, capabilitiesFor, roleSchema} from '@cos/core';
+import {
+  capabilitySchema,
+  capabilitiesFor,
+  positionSchema,
+  roleSchema,
+} from '@cos/core';
 
 import type {AppEnv} from '../auth/middleware.js';
 import {requireAuth} from '../auth/middleware.js';
@@ -30,6 +35,12 @@ const membershipSchema = z
     // Reused from @cos/core rather than redeclared, so the documented contract
     // cannot drift from what the domain actually permits.
     role: roleSchema,
+    /**
+     * The officer's job title, or null. Display only: it is what the UI calls
+     * this person, never what it lets them do. `capabilities` below is derived
+     * from `role` alone.
+     */
+    position: positionSchema.nullable(),
     /**
      * Expanded server-side so non-TypeScript clients get the same answer as
      * `can()` without reimplementing the map.

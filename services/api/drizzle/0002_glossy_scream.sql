@@ -1,0 +1,2 @@
+CREATE TYPE "public"."club_position" AS ENUM('president', 'vice_president', 'treasurer', 'marketing_director');--> statement-breakpoint
+ALTER TABLE "club_members" ADD COLUMN "position" "club_position";

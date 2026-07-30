@@ -11,7 +11,7 @@
  * role changes are ours to write.
  */
 
-import {relations} from 'drizzle-orm';
+import {relations, sql} from 'drizzle-orm';
 import {
   index,
   pgEnum,
@@ -30,6 +30,21 @@ import {user} from './auth.js';
  * what may be stored.
  */
 export const clubRole = pgEnum('club_role', ['admin', 'member']);
+
+/**
+ * Mirrors `Position` in @cos/core.
+ *
+ * Deliberately a different column from `role`, not a widening of it. A
+ * position is a job title and grants nothing; `role` remains the only input to
+ * an authorization decision. Storing them together would make every new
+ * officer title a permissions change.
+ */
+export const clubPosition = pgEnum('club_position', [
+  'president',
+  'vice_president',
+  'treasurer',
+  'marketing_director',
+]);
 
 export const clubs = pgTable(
   'clubs',
@@ -59,6 +74,12 @@ export const clubMembers = pgTable(
       .notNull()
       .references(() => clubs.id, {onDelete: 'cascade'}),
     role: clubRole('role').notNull().default('member'),
+    /**
+     * The officer's title, or null. Nullable because most members hold no
+     * position and because an officer without a title is a normal state, not a
+     * broken row - the club simply has not said which job they do.
+     */
+    position: clubPosition('position'),
     joinedAt: timestamp('joined_at', {withTimezone: true})
       .notNull()
       .defaultNow(),
@@ -75,9 +96,78 @@ export const clubMembers = pgTable(
   ],
 );
 
+/** Mirrors `InvitationStatus` in @cos/core. */
+export const invitationStatus = pgEnum('invitation_status', [
+  'pending',
+  'accepted',
+  'declined',
+  'revoked',
+]);
+
+/**
+ * Invitations, addressed to an email rather than to a user.
+ *
+ * That is the point: the person being invited may not have an account yet, so
+ * this cannot be a foreign key to `user`. It resolves to a person only when
+ * someone signs in with that address and accepts.
+ */
+export const clubInvitations = pgTable(
+  'club_invitations',
+  {
+    id: text('id').primaryKey(),
+    clubId: text('club_id')
+      .notNull()
+      .references(() => clubs.id, {onDelete: 'cascade'}),
+    /** Always stored lowercase - @cos/core normalises before it gets here. */
+    email: text('email').notNull(),
+    role: clubRole('role').notNull().default('member'),
+    position: clubPosition('position'),
+    status: invitationStatus('status').notNull().default('pending'),
+    /**
+     * Who sent it. `set null` rather than cascade: an invitation should
+     * outlive the officer who sent it, since revoking it is the club's
+     * decision and not a side effect of that person leaving.
+     */
+    invitedBy: text('invited_by').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at', {withTimezone: true})
+      .notNull()
+      .defaultNow(),
+    expiresAt: timestamp('expires_at', {withTimezone: true}).notNull(),
+  },
+  (table) => [
+    // The recipient's query is "what is pending for my address", across every
+    // club, so email leads.
+    index('club_invitations_email_idx').on(table.email),
+    index('club_invitations_club_idx').on(table.clubId),
+    // One live invitation per address per club. Partial, so a declined
+    // invitation does not block the club from trying again later - which is an
+    // ordinary thing to want after someone changes their mind.
+    uniqueIndex('club_invitations_pending_idx')
+      .on(table.clubId, table.email)
+      .where(sql`${table.status} = 'pending'`),
+  ],
+);
+
 export const clubsRelations = relations(clubs, ({many}) => ({
   members: many(clubMembers),
+  invitations: many(clubInvitations),
 }));
+
+export const clubInvitationsRelations = relations(
+  clubInvitations,
+  ({one}) => ({
+    club: one(clubs, {
+      fields: [clubInvitations.clubId],
+      references: [clubs.id],
+    }),
+    invitedByUser: one(user, {
+      fields: [clubInvitations.invitedBy],
+      references: [user.id],
+    }),
+  }),
+);
 
 export const clubMembersRelations = relations(clubMembers, ({one}) => ({
   club: one(clubs, {

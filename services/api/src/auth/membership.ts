@@ -6,12 +6,19 @@
  * query club_members for permission purposes.
  */
 
-import type {Role} from '@cos/core';
+import type {Position, Role} from '@cos/core';
 import {and, eq} from 'drizzle-orm';
 
 import {db} from '../db/client.js';
 import {clubMembers, clubs} from '../db/schema/club.js';
 
+/**
+ * What an authorization decision is allowed to see.
+ *
+ * `position` is deliberately absent. The permission path cannot read a job
+ * title even by accident, which is the structural version of the rule that
+ * titles grant nothing.
+ */
 export interface Membership {
   clubId: string;
   userId: string;
@@ -41,6 +48,11 @@ export interface ClubMembershipSummary {
   name: string;
   slug: string;
   role: Role;
+  /**
+   * The officer's title, or null. Carried for display only - authorization
+   * reads `role` and never this.
+   */
+  position: Position | null;
 }
 
 /**
@@ -59,6 +71,7 @@ export async function listMemberships(
       name: clubs.name,
       slug: clubs.slug,
       role: clubMembers.role,
+      position: clubMembers.position,
     })
     .from(clubMembers)
     .innerJoin(clubs, eq(clubMembers.clubId, clubs.id))

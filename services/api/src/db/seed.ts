@@ -38,12 +38,24 @@ const PEOPLE = [
     name: 'Avery Officer',
     password: 'development-only-password',
     role: 'admin' as const,
+    position: 'president' as const,
+  },
+  {
+    email: 'treasurer@example.com',
+    name: 'Jordan Treasurer',
+    password: 'development-only-password',
+    role: 'admin' as const,
+    // A second officer with a different title and identical permissions. This
+    // exists in the seed specifically so the "positions grant nothing" rule is
+    // visible in the running app rather than only in a test.
+    position: 'treasurer' as const,
   },
   {
     email: 'member@example.com',
     name: 'Sam Member',
     password: 'development-only-password',
     role: 'member' as const,
+    position: null,
   },
 ];
 
@@ -134,11 +146,22 @@ async function main(): Promise<void> {
     userIdByEmail.set(person.email, userId);
     await db
       .insert(clubMembers)
-      .values({userId, clubId: CLUB.id, role: person.role})
-      .onConflictDoNothing({
+      .values({
+        userId,
+        clubId: CLUB.id,
+        role: person.role,
+        position: person.position,
+      })
+      // Position updates on re-seed, unlike the rest of the row. A database
+      // seeded before positions existed would otherwise keep null titles
+      // forever and the feature would look broken on an existing dev machine.
+      .onConflictDoUpdate({
         target: [clubMembers.userId, clubMembers.clubId],
+        set: {position: person.position},
       });
-    console.log(`  ${person.email} is ${person.role} of ${CLUB.slug}`);
+    console.log(
+      `  ${person.email} is ${person.position ?? person.role} of ${CLUB.slug}`,
+    );
   }
 
   await seedEvents(userIdByEmail.get('officer@example.com'));
