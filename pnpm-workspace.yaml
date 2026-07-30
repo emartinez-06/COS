@@ -2,3 +2,11 @@ packages:
   - apps/*
   - packages/*
   - services/*
+
+# Astryx ships prebuilt CSS; its postinstall only prints an `astryx init` nudge.
+# Allowed so installs stay quiet rather than warning about ignored scripts.
+# sharp is Next.js image optimization and does need its native build.
+onlyBuiltDependencies:
+  - '@astryxdesign/cli'
+  - '@astryxdesign/core'
+  - sharp
