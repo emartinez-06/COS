@@ -1,0 +1,32 @@
+/*
+ * Workaround for a truncation gap in Astryx `Token`.
+ *
+ * Token documents that it "truncates with ellipsis on overflow", and it does -
+ * but only in its non-interactive form. Once `onClick` is set it renders an
+ * inner <button> carrying `overflow: hidden; text-overflow: clip`, wrapping a
+ * label <span> with `display: inline`. An inline box ignores overflow, so a
+ * long label gets cut mid-word with no ellipsis.
+ *
+ * A month cell is narrow and event titles are arbitrary, so readable
+ * truncation is not optional here. These rules restore it on the two inner
+ * nodes. Scoped as a CSS module so nothing leaks to other Token usages.
+ *
+ * Revisit if Astryx fixes interactive Token truncation upstream; this file
+ * should then be deletable with no visual change.
+ */
+
+.chip {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.chip button {
+  text-overflow: ellipsis;
+}
+
+.chip button > span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

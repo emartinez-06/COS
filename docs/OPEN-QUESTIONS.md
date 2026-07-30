@@ -17,12 +17,6 @@ Building Baylor-first gives a concrete customer and real validation; staying agn
 Leaning: Baylor-first for validation, but keep university-specific bits (export formats, org verification) behind interfaces.
 Must be answered by v0.4 (treasury).
 
-**Who is the account holder: the club or the person?**
-A member belongs to multiple clubs and eventually graduates into an alumni role.
-If accounts are person-first, alumni support falls out naturally; if club-first, onboarding is simpler.
-Leaning: person-first accounts with per-club membership and roles.
-Must be answered in v0.1 (it is the member model).
-
 **What exactly is paywalled?**
 "Dashboards and some features" needs a concrete line before hosted billing exists (post-v0.4).
 The line must not undermine the low-barrier mantra: the free tier has to be genuinely useful, not a demo.
@@ -34,14 +28,10 @@ Must be answered before trip planning ships.
 
 ## Technical
 
-**API framework and data access.**
-Fastify vs Hono vs NestJS; Drizzle vs Prisma vs plain SQL; tRPC vs REST vs both.
-Decided by whoever writes the first API code in v0.1, recorded in ARCHITECTURE.md.
-
-**Auth.**
-Roll session auth in the API vs an open-source identity layer (e.g. better-auth, Lucia-style patterns) vs a hosted provider.
-Constraints: must work self-hosted, must eventually support university SSO (SAML/CAS) because that is how universities verify students.
-Must be answered in v0.1.
+**University SSO.**
+Universities verify students through SAML or CAS, and that is eventually how members should prove they belong to a campus.
+The identity layer is settled (better-auth, see [ARCHITECTURE.md](ARCHITECTURE.md)), but which protocol to support first, and whether a single campus integration is worth building before there is a second customer, is not.
+Must be answered before any university formally adopts COS; email and password is sufficient until then.
 
 **GroupMe API limits.**
 The bot API is free but rate limits, webhook reliability, and the OAuth story for club owners need verification against the real API before v0.1 is scoped in detail.
