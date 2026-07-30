@@ -17,4 +17,8 @@ export default defineConfig({
     // file appearing somewhere unexpected is a visible decision.
     include: ['{lib,components}/**/*.test.{ts,tsx}'],
   },
+  // tsconfig.json sets `jsx: preserve` for Next, which would leave JSX in the
+  // output for the test runner to choke on. The automatic runtime is what Next
+  // compiles to anyway, so this matches rather than diverges.
+  oxc: {jsx: {runtime: 'automatic'}},
 });
