@@ -15,6 +15,7 @@
 import {useEffect, useState} from 'react';
 import type {CSSProperties} from 'react';
 import {useRouter} from 'next/navigation';
+import {Banner} from '@astryxdesign/core/Banner';
 import {Button} from '@astryxdesign/core/Button';
 import {Card} from '@astryxdesign/core/Card';
 import {Center} from '@astryxdesign/core/Center';
@@ -29,6 +30,18 @@ import {signUp} from '../../lib/auth-client';
 import {useSession} from '../../lib/session';
 
 const MIN_PASSWORD_LENGTH = 12;
+
+/**
+ * Which field an error belongs to, so it renders under that field rather than
+ * under whichever input happens to be last. `form` is for failures that are
+ * not about one field - a rejected sign-up, usually.
+ */
+type ErrorField = 'name' | 'email' | 'password' | 'form';
+
+interface FormError {
+  field: ErrorField;
+  message: string;
+}
 
 const pageStyle: CSSProperties = {
   minHeight: '100dvh',
@@ -48,7 +61,7 @@ export default function SignUpPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<FormError | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -57,17 +70,26 @@ export default function SignUpPage() {
     }
   }, [status, router]);
 
+  /** The status prop for one field, set only when the error is about it. */
+  const statusFor = (field: ErrorField) =>
+    error?.field === field
+      ? ({type: 'error', message: error.message} as const)
+      : undefined;
+
   const handleSubmit = async () => {
     if (!name.trim()) {
-      setError('Enter your name.');
+      setError({field: 'name', message: 'Enter your name.'});
       return;
     }
     if (!email) {
-      setError('Enter your email.');
+      setError({field: 'email', message: 'Enter your email.'});
       return;
     }
     if (password.length < MIN_PASSWORD_LENGTH) {
-      setError(`Use at least ${MIN_PASSWORD_LENGTH} characters.`);
+      setError({
+        field: 'password',
+        message: `Use at least ${MIN_PASSWORD_LENGTH} characters.`,
+      });
       return;
     }
 
@@ -81,7 +103,12 @@ export default function SignUpPage() {
     });
 
     if (signUpError) {
-      setError(signUpError.message ?? 'Could not create that account.');
+      // Server-side failures are usually about the account as a whole - an
+      // email already registered - so they belong to the form, not a field.
+      setError({
+        field: 'form',
+        message: signUpError.message ?? 'Could not create that account.',
+      });
       setIsLoading(false);
       return;
     }
@@ -109,6 +136,10 @@ export default function SignUpPage() {
               </Text>
             </VStack>
 
+            {error?.field === 'form' && (
+              <Banner status="error" title={error.message} />
+            )}
+
             <VStack gap={2}>
               <TextInput
                 label="Name"
@@ -120,6 +151,7 @@ export default function SignUpPage() {
                   setError(null);
                 }}
                 size="lg"
+                status={statusFor('name')}
               />
               <TextInput
                 label="Email"
@@ -132,6 +164,7 @@ export default function SignUpPage() {
                   setError(null);
                 }}
                 size="lg"
+                status={statusFor('email')}
               />
               <TextInput
                 label="Password"
@@ -144,7 +177,7 @@ export default function SignUpPage() {
                   setError(null);
                 }}
                 size="lg"
-                status={error ? {type: 'error', message: error} : undefined}
+                status={statusFor('password')}
               />
             </VStack>
 

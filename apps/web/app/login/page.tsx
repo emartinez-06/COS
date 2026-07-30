@@ -12,6 +12,7 @@
 import {Suspense, useEffect, useState} from 'react';
 import type {CSSProperties} from 'react';
 import {useRouter, useSearchParams} from 'next/navigation';
+import {Banner} from '@astryxdesign/core/Banner';
 import {Button} from '@astryxdesign/core/Button';
 import {Card} from '@astryxdesign/core/Card';
 import {Center} from '@astryxdesign/core/Center';
@@ -39,6 +40,19 @@ const contentStyle: CSSProperties = {
   maxWidth: 400,
 };
 
+/**
+ * Which field an error belongs to, so it renders under that field rather than
+ * under whichever input happens to be last. A rejected sign-in is `form`: it
+ * is not the email's fault or the password's, and saying which it was would
+ * tell an attacker whether the account exists.
+ */
+type ErrorField = 'email' | 'password' | 'form';
+
+interface FormError {
+  field: ErrorField;
+  message: string;
+}
+
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -46,7 +60,7 @@ function LoginForm() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<FormError | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const nextPath = searchParams.get('next') ?? '/';
@@ -58,9 +72,19 @@ function LoginForm() {
     }
   }, [status, router, nextPath]);
 
+  /** The status prop for one field, set only when the error is about it. */
+  const statusFor = (field: ErrorField) =>
+    error?.field === field
+      ? ({type: 'error', message: error.message} as const)
+      : undefined;
+
   const handleSubmit = async () => {
-    if (!email || !password) {
-      setError('Enter your email and password.');
+    if (!email) {
+      setError({field: 'email', message: 'Enter your email.'});
+      return;
+    }
+    if (!password) {
+      setError({field: 'password', message: 'Enter your password.'});
       return;
     }
 
@@ -72,8 +96,12 @@ function LoginForm() {
     if (signInError) {
       // Deliberately does not distinguish "no such account" from "wrong
       // password": that difference tells an attacker which emails are
-      // registered.
-      setError('That email and password do not match an account.');
+      // registered. For the same reason it is a form-level error rather than
+      // one pinned to the email or the password field.
+      setError({
+        field: 'form',
+        message: 'That email and password do not match an account.',
+      });
       setIsLoading(false);
       return;
     }
@@ -103,6 +131,10 @@ function LoginForm() {
               </Text>
             </VStack>
 
+            {error?.field === 'form' && (
+              <Banner status="error" title={error.message} />
+            )}
+
             <VStack gap={2}>
               <TextInput
                 label="Email"
@@ -115,6 +147,7 @@ function LoginForm() {
                   setError(null);
                 }}
                 size="lg"
+                status={statusFor('email')}
               />
               <TextInput
                 label="Password"
@@ -127,9 +160,7 @@ function LoginForm() {
                   setError(null);
                 }}
                 size="lg"
-                status={
-                  error ? {type: 'error', message: error} : undefined
-                }
+                status={statusFor('password')}
               />
             </VStack>
 
