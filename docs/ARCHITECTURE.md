@@ -22,15 +22,20 @@ Retrofitting shared packages into a standalone Next.js app when the desktop phas
 | Language | TypeScript everywhere | One language across web, desktop shell, mobile, API, and bot maximizes code reuse and keeps contributor barrier low |
 | Web frontend | Next.js (React) | First-class web experience, SEO for public club pages, largest contributor pool |
 | Design system | [Astryx](https://github.com/facebook/astryx) (`@astryxdesign/core`) | 90+ accessible, themeable components so the UI is composed rather than hand-rolled; ships prebuilt CSS, so it adds no compiler to the build |
-| API | Dedicated TypeScript service | Self-hostable with no vendor coupling; the API is a hard boundary so every future platform is just another client |
+| API | Dedicated TypeScript service on [Hono](https://hono.dev) | Self-hostable with no vendor coupling; the API is a hard boundary so every future platform is just another client. Web-standard `Request`/`Response` keeps the server portable and lets auth mount without adapter glue |
+| API contract | REST, with OpenAPI generated from the `packages/core` Zod schemas | A self-hosted product needs a discoverable, documented contract; the schemas that already validate the domain generate it |
 | Database | Postgres | Relational integrity for the audit ledger, row-level multi-tenancy, boring and proven |
+| Data access | [Drizzle](https://orm.drizzle.team) | SQL-shaped, so the append-only ledger and `club_id` filtering stay legible; generates plain-SQL migrations that can be reviewed in a diff before they run against a self-hoster's database |
+| Auth | [better-auth](https://better-auth.com) for identity; authorization stays in `packages/core` | A library, not a service, so self-hosting is inherent and its tables live in our Postgres. Sessions are cookie plus database row, so they are revocable |
 | File storage | S3-compatible object storage | Document hub needs blob storage; S3 compatibility means AWS, R2, or MinIO (self-hosted) all work |
 | Realtime | WebSockets from the API | Live updates feed; no third-party realtime dependency |
 | Deployment | Docker Compose | `docker compose up` must bring up a complete self-hosted instance |
 
-### Choices deliberately not made yet
+### Why not tRPC
 
-Framework-level choices inside the API service (Fastify vs Hono vs NestJS, ORM vs query builder, tRPC vs REST vs both) are recorded in [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) and get decided when the first API code lands, not before.
+tRPC and Hono's RPC client both deliver end-to-end type safety by coupling the client to the server's TypeScript types.
+That contradicts the hard-boundary rule above: it produces no contract an Expo app, a Tauri shell, a self-hoster, or a third-party integrator can read.
+Generating OpenAPI from the Zod schemas costs a little more ceremony per route and yields a documented API plus a generated typed client.
 
 ## Monorepo layout
 
@@ -66,6 +71,48 @@ If it would, the port is wrong and gets fixed rather than worked around.
 
 Components ask whether the current viewer *may do a thing* (`can(role, 'event:create')`), never what role they hold.
 Roles are per-club and the set will grow past officer and member, so the role-to-capability mapping lives in exactly one place in `packages/core`.
+
+The capabilities themselves are declared as a statement object of resources and actions:
+
+```ts
+export const STATEMENT = {
+  event: ['create', 'edit', 'delete', 'view'],
+  announcement: ['draft'],
+} as const;
+```
+
+This is plain data with no library import, so `packages/core` stays dependency-free and the mapping can be consumed by anything.
+
+### Identity and authorization are separate systems
+
+The line between them is deliberate, because only one of the two is genuinely hard.
+
+**better-auth owns identity**: users, credentials, and sessions.
+It is a library rather than a service, so its tables live in our own Postgres and self-hosting needs no extra container.
+Sessions are a cookie plus a database row rather than a JWT, so they can be revoked and so server rendering can read them directly.
+
+**`packages/core` owns authorization**: `can(role, capability)` and nothing else.
+Keeping it a pure function is what lets the same check run in a React component, an API handler, the GroupMe bot, and a unit test with no database.
+It also means an identity library that disappoints can be replaced without touching the permission model.
+
+Authorization is enforced in the API, against the role on the requesting user's membership row for the club the request touches.
+The client-side check exists to hide controls a viewer may not use, never to protect anything.
+
+### The member model is person-first
+
+A person holds one account and belongs to many clubs, with a role in each:
+
+```
+users         better-auth's; identity only
+clubs         ours
+club_members  ours; (user_id, club_id, role)
+```
+
+This is the shape where multi-club membership and the eventual alumni role fall out of the schema instead of requiring a migration.
+
+Clubs are deliberately **not** modelled as better-auth organizations.
+That plugin tracks a single active organization per session, which suits a workspace switcher and fights a student who wants one merged calendar across four clubs.
+The cost of owning these tables is that invitations, member removal, and role changes are ours to write.
 
 ## Integration philosophy
 
