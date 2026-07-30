@@ -2,9 +2,6 @@
   "compilerOptions": {
     "target": "ES2022",
     "lib": ["ES2022"],
-    // NodeNext rather than bundler: core is now consumed by services/api as
-    // real Node ESM, and NodeNext is what makes tsc reject the extensionless
-    // relative imports Node would fail on at runtime.
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "strict": true,
@@ -13,12 +10,13 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "rootDir": "src",
     "outDir": "dist",
     "skipLibCheck": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "verbatimModuleSyntax": true
   },
-  "include": ["src"]
+  // drizzle.config.ts sits outside src but should still be typechecked, so
+  // rootDir is set only in tsconfig.build.json where emit actually happens.
+  "include": ["src", "drizzle.config.ts"]
 }

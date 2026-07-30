@@ -10,7 +10,7 @@
  * tell the difference, which is the point.
  */
 
-import type {ClubEvent, EventDraft} from './club-event';
+import type {ClubEvent, EventDraft} from './club-event.js';
 
 /** Unsubscribes a listener registered with `subscribe`. */
 export type Unsubscribe = () => void;

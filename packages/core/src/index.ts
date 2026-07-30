@@ -6,7 +6,7 @@
  * pure function.
  */
 
-export * from './club-event';
-export * from './role';
-export * from './ports';
-export * from './announcement';
+export * from './club-event.js';
+export * from './role.js';
+export * from './ports.js';
+export * from './announcement.js';

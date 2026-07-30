@@ -1,0 +1,10 @@
+{
+  // What actually ships: src only, so dist mirrors src rather than nesting
+  // under a src/ folder to make room for drizzle.config.ts.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src"
+  },
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts"]
+}

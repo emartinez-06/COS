@@ -17,8 +17,8 @@ import {AppShell} from '@astryxdesign/core/AppShell';
 import {TopNav, TopNavHeading} from '@astryxdesign/core/TopNav';
 import {NavIcon} from '@astryxdesign/core/NavIcon';
 import {CalendarDaysIcon} from '@heroicons/react/24/solid';
-import {DEMO_CLUB_NAME} from '../../lib/seed-events';
-import {RoleSwitcher} from './role-switcher';
+import {useSession} from '../../lib/session';
+import {UserMenu} from './user-menu';
 
 /**
  * The Notion-style dot grid. It sits on the shell background, behind the
@@ -35,6 +35,8 @@ const dottedWorkspace: CSSProperties = {
 };
 
 export function DashboardShell({children}: {children: React.ReactNode}) {
+  const {activeClub} = useSession();
+
   return (
     <AppShell
       contentPadding={0}
@@ -51,11 +53,11 @@ export function DashboardShell({children}: {children: React.ReactNode}) {
                 />
               }
               heading="COS"
-              subheading={DEMO_CLUB_NAME}
+              subheading={activeClub?.name}
               headingHref="/"
             />
           }
-          endContent={<RoleSwitcher />}
+          endContent={<UserMenu />}
         />
       }>
       {children}

@@ -13,7 +13,7 @@ import {
   CATEGORY_LABELS,
   type ClubEvent,
   upcomingEvents,
-} from './club-event';
+} from './club-event.js';
 
 export interface AnnouncementOptions {
   /** Club name used in the greeting. */

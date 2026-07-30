@@ -1,0 +1,45 @@
+# Local development and self-hosting.
+#
+# docs/ARCHITECTURE.md commits to `docker compose up` bringing up a complete
+# self-hosted instance. Today that is only Postgres, because services/api is
+# the only thing that needs it and is still run from the host with `pnpm dev`.
+# The api and web services join this file as they gain Dockerfiles, which is
+# why the database is already on a named network and a named volume rather
+# than the defaults.
+
+name: cos
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-cos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cos_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-cos}
+    ports:
+      # Host port is configurable so a developer with a system Postgres on
+      # 5432 does not have to shut it down to work on this.
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - cos
+    healthcheck:
+      # Migrations run immediately after boot, so anything depending on this
+      # needs to wait for real readiness rather than for the container to exist.
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:-cos} -d ${POSTGRES_DB:-cos}',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  postgres-data:
+
+networks:
+  cos:
