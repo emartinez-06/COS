@@ -27,6 +27,8 @@ The service listens on port 3200.
 | `/openapi.json` | The generated spec |
 | `/api/auth/*` | Owned entirely by better-auth |
 | `/api/session` | The signed-in user and their club memberships |
+| `/api/clubs/{clubId}/events` | List and create; capability-gated |
+| `/api/clubs/{clubId}/events/{eventId}` | Update and delete; capability-gated |
 
 ## Scripts
 
@@ -47,6 +49,16 @@ Sessions are an httpOnly cookie backed by a database row, so they can be revoked
 Authorization is **not** better-auth's.
 `can(role, capability)` lives in `@cos/core` and is enforced here by `requireCapability()`, which reads the caller's role from `club_members` for the club a request names.
 The same check runs in the browser to decide whether to render a control, but only the server-side one protects anything.
+
+A caller who is not a member of the club gets **404 rather than 403**: whether a club exists is itself information, and returning 403 would let anyone enumerate clubs by id.
+
+## Tests
+
+`pnpm test` requires a running, migrated Postgres, because the thing under test is the lookup of a role from `club_members`.
+Mocking that would test the mock.
+
+`src/routes/events.test.ts` asserts the full matrix: anonymous callers are refused, a member may list but is refused create, edit, and delete, an officer may do all four, and a signed-in non-member gets 404.
+These were validated by deliberately removing the capability gate and confirming nine of them fail; a test that cannot fail is not protecting anything.
 
 Clubs and membership are our own tables rather than better-auth's organization plugin, because that plugin tracks one active organization per session and members belong to several clubs at once.
 The cost is that invitations, member removal, and role changes are ours to write.

@@ -15,6 +15,7 @@ import {auth} from './auth/auth.js';
 import type {AppEnv} from './auth/middleware.js';
 import {withSession} from './auth/middleware.js';
 import {env, isProduction} from './env.js';
+import {eventRoutes} from './routes/events.js';
 import {healthRoutes} from './routes/health.js';
 import {sessionRoutes} from './routes/session.js';
 
@@ -69,6 +70,7 @@ app.use('*', withSession);
 
 app.route('/', healthRoutes);
 app.route('/api', sessionRoutes);
+app.route('/api', eventRoutes);
 
 app.doc('/openapi.json', {
   openapi: '3.1.0',
