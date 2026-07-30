@@ -1,6 +1,6 @@
 /**
  * The zone boundary is the whole point of this module, so these tests run in a
- * pinned zone (America/Chicago, set in vitest.config.ts) and assert against
+ * pinned zone (America/Chicago, set in vitest.config.mts) and assert against
  * literal strings rather than against values recomputed from the same local
  * getters the code uses. A test that builds its expectation the way the
  * implementation does cannot catch an off-by-one-day.
