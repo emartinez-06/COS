@@ -1,23 +1,27 @@
 /**
- * Seed data for the phase-1 dashboard.
+ * The demo club's calendar.
  *
- * Offsets are relative to *today*, not to a day of the month. Anchoring to a
- * day of the month means that late in the month every seeded event is already
- * in the past, which makes "Up next" and the GroupMe draft render empty and
- * look broken. A couple of events sit in the past deliberately so the calendar
- * shows history as well as what is coming.
+ * This moved here from `apps/web/lib/seed-events.ts` when the dashboard
+ * started reading events over the API. The web fixture was rebuilt in the
+ * browser on every load; these are real rows, so the anchoring problem has to
+ * be solved at seed time instead.
  *
- * Built by a function of `now` (not a module constant) because it is generated
- * on the client after hydration - see the mount gate in the calendar view.
+ * Offsets are relative to the day the seed runs, never to a day of the month.
+ * Anchoring to a day of the month means that late in the month every event is
+ * already in the past, so "Up next" and the GroupMe draft render empty and the
+ * product looks broken. Two events sit deliberately in the past so the
+ * calendar shows history as well as what is coming.
  */
 
-import type {ClubEvent, EventCategory, EventVisibility} from '@cos/core';
+import type {StoredLink, StoredSpeaker} from './schema/event.js';
 
-export const DEMO_CLUB_ID = 'club_baylor_acm';
-export const DEMO_CLUB_NAME = 'Baylor ACM';
+type Category = 'meeting' | 'social' | 'service' | 'workshop' | 'fundraiser';
+type Visibility = 'members' | 'public';
 
-interface SeedSpec {
-  /** Days from today. Negative is in the past. */
+interface EventSeed {
+  /** Stable id so re-seeding updates a row rather than duplicating it. */
+  id: string;
+  /** Days from the day the seed runs. Negative is in the past. */
   dayOffset: number;
   /** Local start hour, 24h. */
   hour: number;
@@ -25,15 +29,15 @@ interface SeedSpec {
   title: string;
   description: string;
   location: string;
-  category: EventCategory;
-  visibility: EventVisibility;
-  speaker?: {name: string; title?: string; affiliation?: string};
-  links?: {label: string; url: string}[];
-  createdBy: string;
+  category: Category;
+  visibility: Visibility;
+  speaker?: StoredSpeaker;
+  links?: StoredLink[];
 }
 
-const SEEDS: SeedSpec[] = [
+const SEEDS: EventSeed[] = [
   {
+    id: 'evt_seed_chapter_meeting',
     dayOffset: -9,
     hour: 18,
     durationHours: 1.5,
@@ -43,9 +47,9 @@ const SEEDS: SeedSpec[] = [
     location: 'Rogers Engineering 109',
     category: 'meeting',
     visibility: 'members',
-    createdBy: 'Erick Martinez',
   },
   {
+    id: 'evt_seed_resume_workshop',
     dayOffset: -2,
     hour: 17,
     durationHours: 2,
@@ -66,9 +70,9 @@ const SEEDS: SeedSpec[] = [
         url: 'https://example.com/acm-resume-template.pdf',
       },
     ],
-    createdBy: 'Erick Martinez',
   },
   {
+    id: 'evt_seed_tech_talk',
     dayOffset: 2,
     hour: 19,
     durationHours: 2,
@@ -87,9 +91,9 @@ const SEEDS: SeedSpec[] = [
       {label: 'RSVP', url: 'https://example.com/acm-tech-talk-rsvp'},
       {label: 'Slides (posted after)', url: 'https://example.com/acm-slides'},
     ],
-    createdBy: 'Erick Martinez',
   },
   {
+    id: 'evt_seed_service_morning',
     dayOffset: 5,
     hour: 10,
     durationHours: 4,
@@ -102,9 +106,9 @@ const SEEDS: SeedSpec[] = [
     links: [
       {label: 'Sign-up sheet', url: 'https://example.com/acm-service-signup'},
     ],
-    createdBy: 'Amara Osei',
   },
   {
+    id: 'evt_seed_game_night',
     dayOffset: 12,
     hour: 18,
     durationHours: 3,
@@ -114,9 +118,9 @@ const SEEDS: SeedSpec[] = [
     location: 'SUB Den',
     category: 'social',
     visibility: 'public',
-    createdBy: 'Amara Osei',
   },
   {
+    id: 'evt_seed_bake_sale',
     dayOffset: 19,
     hour: 12,
     durationHours: 5,
@@ -129,43 +133,56 @@ const SEEDS: SeedSpec[] = [
     links: [
       {label: 'Volunteer shifts', url: 'https://example.com/acm-bake-sale'},
     ],
-    createdBy: 'Amara Osei',
   },
 ];
 
-/** Builds the seeded event list, positioned relative to `now`. */
-export function buildSeedEvents(now: Date = new Date()): ClubEvent[] {
-  const createdAt = now.toISOString();
+export interface SeedEventRow {
+  id: string;
+  clubId: string;
+  title: string;
+  description: string;
+  startsAt: Date;
+  endsAt: Date;
+  location: string;
+  speaker: StoredSpeaker | null;
+  links: StoredLink[];
+  category: Category;
+  visibility: Visibility;
+  createdBy: string;
+}
 
-  return SEEDS.map((spec, index) => {
-    // Date arithmetic on the day component: the Date constructor normalises
+/** Builds the seeded rows, positioned relative to `now`. */
+export function buildSeedEventRows(
+  clubId: string,
+  authorId: string,
+  now: Date = new Date(),
+): SeedEventRow[] {
+  return SEEDS.map((seed) => {
+    // Arithmetic on the day component: the Date constructor normalises
     // overflow, so +19 days from the 29th correctly rolls into next month.
-    const start = new Date(
+    const startsAt = new Date(
       now.getFullYear(),
       now.getMonth(),
-      now.getDate() + spec.dayOffset,
-      spec.hour,
+      now.getDate() + seed.dayOffset,
+      seed.hour,
       0,
       0,
       0,
     );
-    const end = new Date(start.getTime() + spec.durationHours * 3600_000);
 
     return {
-      id: `seed_${index + 1}`,
-      clubId: DEMO_CLUB_ID,
-      title: spec.title,
-      description: spec.description,
-      startsAt: start.toISOString(),
-      endsAt: end.toISOString(),
-      location: spec.location,
-      speaker: spec.speaker ?? null,
-      links: spec.links ?? [],
-      category: spec.category,
-      visibility: spec.visibility,
-      createdAt,
-      updatedAt: createdAt,
-      createdBy: spec.createdBy,
+      id: seed.id,
+      clubId,
+      title: seed.title,
+      description: seed.description,
+      startsAt,
+      endsAt: new Date(startsAt.getTime() + seed.durationHours * 3_600_000),
+      location: seed.location,
+      speaker: seed.speaker ?? null,
+      links: seed.links ?? [],
+      category: seed.category,
+      visibility: seed.visibility,
+      createdBy: authorId,
     };
   });
 }

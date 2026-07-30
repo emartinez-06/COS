@@ -21,13 +21,13 @@ import {VStack} from '@astryxdesign/core/Stack';
 import {Skeleton} from '@astryxdesign/core/Skeleton';
 import {EmptyState} from '@astryxdesign/core/EmptyState';
 import {Button} from '@astryxdesign/core/Button';
+import {Banner} from '@astryxdesign/core/Banner';
 import {Icon} from '@astryxdesign/core/Icon';
 import {CalendarDaysIcon} from '@heroicons/react/24/outline';
 import type {ClubEvent, EventDraft} from '@cos/core';
 import {isSameMonth, startOfMonth, addMonths} from '../../lib/datetime';
 import {useEvents} from '../../lib/event-store';
-import {useCan} from '../../lib/session';
-import {DEMO_CLUB_NAME} from '../../lib/seed-events';
+import {useCan, useSession} from '../../lib/session';
 import {CalendarToolbar} from './calendar-toolbar';
 import {EventComposerDialog} from './event-composer-dialog';
 import {EventDetailPanel} from './event-detail-panel';
@@ -55,8 +55,13 @@ const panelInner: CSSProperties = {
 };
 
 export function CalendarView() {
-  const {events, isLoading, createEvent, updateEvent, deleteEvent} = useEvents();
+  const {events, isLoading, error, createEvent, updateEvent, deleteEvent} =
+    useEvents();
   const canCreate = useCan('event:create');
+  // The club's real name, from the session's membership list. It used to come
+  // from the web-side fixture, which only worked while the demo club was the
+  // only club that existed.
+  const {activeClub} = useSession();
 
   const [isMounted, setIsMounted] = useState(false);
   const [month, setMonth] = useState<Date>(() => startOfMonth(new Date()));
@@ -114,6 +119,29 @@ export function CalendarView() {
       <VStack gap={4} style={page}>
         <Skeleton width={260} height={32} />
         <Skeleton height={640} />
+      </VStack>
+    );
+  }
+
+  // Shown instead of the grid, not above it. A failed load leaves `events`
+  // empty, and an empty calendar renders "Your officers have not scheduled
+  // anything yet" - which would be a confident lie when the truth is that we
+  // could not reach the API.
+  if (error) {
+    return (
+      <VStack gap={4} style={page}>
+        <Banner
+          status="error"
+          title="Could not load this club’s events"
+          description={error}
+          endContent={
+            <Button
+              label="Retry"
+              variant="secondary"
+              onClick={() => window.location.reload()}
+            />
+          }
+        />
       </VStack>
     );
   }
@@ -187,7 +215,7 @@ export function CalendarView() {
               ) : (
                 <UpcomingPanel
                   events={events}
-                  clubName={DEMO_CLUB_NAME}
+                  clubName={activeClub?.name ?? 'your club'}
                   onSelectEvent={(event) => {
                     setSelectedEventId(event.id);
                     setMonth(startOfMonth(new Date(event.startsAt)));
