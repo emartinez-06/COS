@@ -1,0 +1,5 @@
+{
+  // The published shape: source only, no tests in dist.
+  "extends": "./tsconfig.json",
+  "exclude": ["src/**/*.test.ts"]
+}

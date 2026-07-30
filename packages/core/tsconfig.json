@@ -2,13 +2,18 @@
   "compilerOptions": {
     "target": "ES2022",
     "lib": ["ES2022"],
-    "module": "ESNext",
-    "moduleResolution": "bundler",
+    // NodeNext rather than bundler: core is now consumed by services/api as
+    // real Node ESM, and NodeNext is what makes tsc reject the extensionless
+    // relative imports Node would fail on at runtime.
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
     "declaration": true,
-    "emitDeclarationOnly": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "rootDir": "src",
     "outDir": "dist",
     "skipLibCheck": true,
     "esModuleInterop": true,
