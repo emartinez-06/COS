@@ -24,6 +24,8 @@ import {z} from 'zod';
 export const STATEMENT = {
   event: ['create', 'edit', 'delete', 'view'],
   announcement: ['draft'],
+  expense: ['create', 'edit', 'delete', 'view'],
+  member: ['invite', 'remove', 'view'],
 } as const satisfies Record<string, readonly string[]>;
 
 /** A resource the product gates access to. */
@@ -72,8 +74,24 @@ const CAPABILITIES: Record<Role, readonly Capability[]> = {
     'event:delete',
     'event:view',
     'announcement:draft',
+    // The treasury is officer-only in full. A member sees no expense at all,
+    // not even read-only: a club's spending is not something the whole roster
+    // browses, and `expense:view` is what gates the navigation section.
+    'expense:create',
+    'expense:edit',
+    'expense:delete',
+    'expense:view',
+    // Inviting is an officer capability, not a presidential one. A club whose
+    // president has gone quiet still needs its treasurer able to add a member,
+    // and tying this to a position would be the one place a title starts
+    // granting something - see the position doc below.
+    'member:invite',
+    'member:remove',
+    'member:view',
   ],
-  member: ['event:view'],
+  // A member sees the roster. Knowing who else is in your own club is not
+  // privileged information, and it is what makes the club feel like a club.
+  member: ['event:view', 'member:view'],
 };
 
 /** True when `role` is permitted to perform `capability`. */
@@ -90,3 +108,53 @@ export const ROLE_LABELS: Record<Role, string> = {
   admin: 'Officer',
   member: 'Member',
 };
+
+/**
+ * An officer's position within the club.
+ *
+ * **A position confers no authority.** It is a title, not a permission: every
+ * officer can do everything an officer can do, and `can()` does not take a
+ * position at all. Treasurer and Marketing Director see the same treasury.
+ *
+ * This is separate from `Role` on purpose, and the separation is the whole
+ * point. Modelling positions as roles would mean every new position needs its
+ * own capability grant copied from the last one, and the failure mode of
+ * forgetting is an officer who is silently locked out of their own club. Here
+ * the failure mode of forgetting is a missing job title.
+ *
+ * What positions are actually for: telling members who to ask. "Who do I send
+ * a receipt to" is answered by the title, not by the permission set.
+ */
+export const positionSchema = z.enum([
+  'president',
+  'vice_president',
+  'treasurer',
+  'marketing_director',
+]);
+
+/** A named officer position. Descriptive only - see `positionSchema`. */
+export type Position = z.infer<typeof positionSchema>;
+
+export const POSITION_LABELS: Record<Position, string> = {
+  president: 'President',
+  vice_president: 'Vice President',
+  treasurer: 'Treasurer',
+  marketing_director: 'Marketing Director',
+};
+
+/** Every position, in the order a club would list its officers. */
+export const ALL_POSITIONS: readonly Position[] = positionSchema.options;
+
+/**
+ * What to call this person on screen.
+ *
+ * Prefers the specific title over the generic one, so an officer reads as
+ * "Treasurer" rather than "Officer" once a position is set. Falls back to the
+ * role, which is what every member without a position gets.
+ */
+export function memberTitle(
+  role: Role,
+  position?: Position | null,
+): string {
+  return position ? POSITION_LABELS[position] : ROLE_LABELS[role];
+}

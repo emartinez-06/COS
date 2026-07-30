@@ -8,5 +8,6 @@
 
 export * from './club-event.js';
 export * from './role.js';
+export * from './invitation.js';
 export * from './ports.js';
 export * from './announcement.js';
