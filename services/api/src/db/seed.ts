@@ -18,10 +18,18 @@ import {closeDatabase, db} from './client.js';
 import {clubMembers, clubs} from './schema/club.js';
 import {user} from './schema/auth.js';
 
+/**
+ * Deliberately matches `DEMO_CLUB_ID` in apps/web/lib/seed-events.ts.
+ *
+ * The dashboard still reads events from an in-memory repository keyed by club
+ * id, so a mismatch here renders an empty calendar for a club that plainly has
+ * events. This alignment becomes unnecessary the moment events are persisted
+ * through the API, and the web-side fixture goes away with it.
+ */
 const CLUB = {
-  id: 'club_demo',
-  name: 'Baylor Computer Science Club',
-  slug: 'baylor-cs',
+  id: 'club_baylor_acm',
+  name: 'Baylor ACM',
+  slug: 'baylor-acm',
   description: 'The demo club used during development.',
 };
 
