@@ -1,47 +1,151 @@
 'use client';
 
 /**
- * The current viewer: who they are and what role they hold in this club.
+ * The current viewer: who they are and what role they hold in the club they
+ * are looking at.
  *
- * Phase 1 has no auth (the mechanism is still an open question - it must work
- * self-hosted and eventually speak university SSO). So the role is switchable
- * from the UI, and this module is the single place that assumption lives.
+ * This used to be a hardcoded role with a switcher in the top nav. It is now
+ * backed by a real session: better-auth resolves identity, and `/api/session`
+ * returns the clubs the person belongs to with their role in each.
  *
- * The important part is the *shape*: components ask `useCan('event:create')`,
- * never `role === 'admin'`. When real auth arrives it replaces the provider's
- * internals and every consumer keeps working.
+ * The shape components see is unchanged - they still ask `useCan('event:create')`
+ * and never `role === 'admin'` - which is the whole reason the swap touched no
+ * calendar code.
+ *
+ * The client-side check decides whether to *render* a control. It is not a
+ * security boundary; the API enforces the same capability with
+ * `requireCapability()` before anything happens.
  */
 
-import {createContext, useContext, useMemo, useState} from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import type {Capability, Role} from '@cos/core';
 import {can} from '@cos/core';
 
-interface Session {
-  /** Display name of the viewer. */
+import {API_URL, apiFetch, authClient} from './auth-client';
+
+export interface ClubMembership {
+  clubId: string;
   name: string;
+  slug: string;
   role: Role;
-  /** Phase-1 only: lets one browser act as both officer and member. */
-  setRole: (role: Role) => void;
+  capabilities: Capability[];
+}
+
+export interface SessionUser {
+  id: string;
+  name: string;
+  email: string;
+  image: string | null;
+}
+
+type SessionStatus = 'loading' | 'authenticated' | 'anonymous' | 'error';
+
+interface Session {
+  status: SessionStatus;
+  user: SessionUser | null;
+  /** Every club the viewer belongs to, not just an "active" one. */
+  memberships: ClubMembership[];
+  /** The club currently being viewed, or null when they belong to none. */
+  activeClub: ClubMembership | null;
+  /** The viewer's role in the active club. */
+  role: Role | null;
+  /** Set when the session could not be loaded at all (API down, usually). */
+  error: string | null;
+  selectClub: (clubId: string) => void;
+  refresh: () => Promise<void>;
+  signOut: () => Promise<void>;
 }
 
 const SessionContext = createContext<Session | null>(null);
 
-interface SessionProviderProps {
-  children: React.ReactNode;
-  initialRole?: Role;
-  name?: string;
+interface SessionResponse {
+  user: SessionUser;
+  memberships: ClubMembership[];
 }
 
-export function SessionProvider({
-  children,
-  initialRole = 'admin',
-  name = 'Erick Martinez',
-}: SessionProviderProps) {
-  const [role, setRole] = useState<Role>(initialRole);
+export function SessionProvider({children}: {children: React.ReactNode}) {
+  const [status, setStatus] = useState<SessionStatus>('loading');
+  const [user, setUser] = useState<SessionUser | null>(null);
+  const [memberships, setMemberships] = useState<ClubMembership[]>([]);
+  const [selectedClubId, setSelectedClubId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    try {
+      const response = await apiFetch('/api/session');
+
+      if (response.status === 401) {
+        setStatus('anonymous');
+        setUser(null);
+        setMemberships([]);
+        setError(null);
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(`Session request failed (${response.status})`);
+      }
+
+      const data = (await response.json()) as SessionResponse;
+      setUser(data.user);
+      setMemberships(data.memberships);
+      setStatus('authenticated');
+      setError(null);
+    } catch (cause) {
+      // Distinguished from `anonymous` on purpose: "you are signed out" and
+      // "we cannot reach the API" need different words on screen.
+      setStatus('error');
+      setError(
+        cause instanceof Error && cause.message.includes('fetch')
+          ? `Could not reach the API at ${API_URL}. Is it running?`
+          : String(cause),
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const handleSignOut = useCallback(async () => {
+    await authClient.signOut();
+    setStatus('anonymous');
+    setUser(null);
+    setMemberships([]);
+    setSelectedClubId(null);
+  }, []);
+
+  const activeClub = useMemo(() => {
+    if (memberships.length === 0) {
+      return null;
+    }
+    return (
+      memberships.find((club) => club.clubId === selectedClubId) ??
+      memberships[0] ??
+      null
+    );
+  }, [memberships, selectedClubId]);
 
   const value = useMemo<Session>(
-    () => ({name, role, setRole}),
-    [name, role],
+    () => ({
+      status,
+      user,
+      memberships,
+      activeClub,
+      role: activeClub?.role ?? null,
+      error,
+      selectClub: setSelectedClubId,
+      refresh,
+      signOut: handleSignOut,
+    }),
+    [status, user, memberships, activeClub, error, refresh, handleSignOut],
   );
 
   return (
@@ -57,8 +161,13 @@ export function useSession(): Session {
   return session;
 }
 
-/** True when the current viewer may perform `capability`. */
+/**
+ * True when the current viewer may perform `capability` in the active club.
+ *
+ * Denies while the session is still loading and when the viewer belongs to no
+ * club, so a control never flashes into view before we know the answer.
+ */
 export function useCan(capability: Capability): boolean {
   const {role} = useSession();
-  return can(role, capability);
+  return role === null ? false : can(role, capability);
 }

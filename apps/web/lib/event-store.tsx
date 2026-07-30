@@ -46,7 +46,10 @@ export function EventStoreProvider({
   children,
   clubId,
 }: EventStoreProviderProps) {
-  const {name: author} = useSession();
+  // The signed-in person is the author. AuthGuard means this provider only
+  // ever mounts with a session, but the fallback keeps the type honest.
+  const {user} = useSession();
+  const author = user?.name ?? 'Unknown';
 
   // Constructed once. Swap this line for an HttpEventRepository when the API
   // exists; nothing else in the app changes.
