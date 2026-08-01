@@ -13,6 +13,9 @@ export default defineConfig({
     // `document.visibilityState`, which is behaviour worth testing rather than
     // stubbing out - a parked tab that keeps polling is a real defect.
     environment: 'jsdom',
+    // Fills the gaps in jsdom that Astryx components hit on render. See the
+    // file for why this is not a per-test concern.
+    setupFiles: ['./vitest.setup.ts'],
     // Only `lib/` and `components/` are covered today. Left explicit so a test
     // file appearing somewhere unexpected is a visible decision.
     include: ['{lib,components}/**/*.test.{ts,tsx}'],

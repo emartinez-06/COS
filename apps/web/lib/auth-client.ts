@@ -33,16 +33,26 @@ export const {signIn, signOut, signUp, useSession: useAuthSession} = authClient;
  *
  * Thin on purpose: this exists so no component has to remember
  * `credentials: 'include'`, which fails silently and confusingly when omitted.
+ *
+ * The JSON content type is skipped for a `FormData` body, and that is not a
+ * tidiness choice. A multipart request's content type carries the boundary
+ * that separates its parts, and only the browser knows what boundary it is
+ * about to generate. Declaring `application/json` over a `FormData` body sends
+ * a request the server cannot parse at all - the document hub's uploads are
+ * the reason this branch exists.
  */
 export async function apiFetch(
   path: string,
   init: RequestInit = {},
 ): Promise<Response> {
+  const isMultipart =
+    typeof FormData !== 'undefined' && init.body instanceof FormData;
+
   return fetch(`${API_URL}${path}`, {
     ...init,
     credentials: 'include',
     headers: {
-      'Content-Type': 'application/json',
+      ...(isMultipart ? {} : {'Content-Type': 'application/json'}),
       ...init.headers,
     },
   });

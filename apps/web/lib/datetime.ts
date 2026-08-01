@@ -77,6 +77,23 @@ export function formatDayLong(date: Date): string {
   });
 }
 
+/**
+ * `Aug 1, 2026 at 3:04 PM`
+ *
+ * Carries the year, unlike `formatDayLong`. The calendar can leave it out
+ * because the month being viewed is on screen above the grid; a document's
+ * history is a list of instants years apart with nothing else to date them.
+ */
+export function formatDateTimeShort(iso: string): string {
+  const at = new Date(iso);
+  const day = at.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+  return `${day} at ${formatTime(iso)}`;
+}
+
 /** `August 2026` */
 export function formatMonthYear(date: Date): string {
   return date.toLocaleDateString('en-US', {month: 'long', year: 'numeric'});

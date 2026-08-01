@@ -12,6 +12,7 @@ import {
   addHours,
   addMonths,
   buildMonthGrid,
+  formatDateTimeShort,
   formatDayLong,
   formatMonthYear,
   formatTime,
@@ -112,6 +113,22 @@ describe('formatTime', () => {
 
   it('uses a 12-hour clock with a padded minute', () => {
     expect(formatTime('2026-08-14T14:05:00.000Z')).toBe('9:05 AM');
+  });
+});
+
+describe('formatDateTimeShort', () => {
+  it('carries the year, unlike formatDayLong', () => {
+    expect(formatDateTimeShort('2026-08-14T23:00:00.000Z')).toBe(
+      'Aug 14, 2026 at 6:00 PM',
+    );
+  });
+
+  it('reads the instant in the local zone, not UTC', () => {
+    // 00:30 UTC is still the previous evening in Central time. A document
+    // history that dated this edit to the 15th would be quietly wrong.
+    expect(formatDateTimeShort('2026-08-15T00:30:00.000Z')).toBe(
+      'Aug 14, 2026 at 7:30 PM',
+    );
   });
 });
 

@@ -40,11 +40,13 @@ import {
   BanknotesIcon,
   CalendarDaysIcon,
   Cog6ToothIcon,
+  FolderIcon,
 } from '@heroicons/react/24/outline';
 import {
   BanknotesIcon as BanknotesIconSolid,
   CalendarDaysIcon as CalendarDaysIconSolid,
   Cog6ToothIcon as Cog6ToothIconSolid,
+  FolderIcon as FolderIconSolid,
 } from '@heroicons/react/24/solid';
 
 import {useSession} from '../../lib/session';
@@ -71,6 +73,12 @@ const sideNavSurface: CSSProperties = {
  * with nothing under it, which would advertise the existence of a section they
  * cannot open. Adding an officer-only surface is one entry in this group.
  *
+ * An individual item may declare one too, for the case a group does not cover:
+ * a section every member can see that contains one destination not everyone
+ * can. Documents is deliberately written this way even though `document:view`
+ * is held by every role, so the gate that governs the surface is stated next to
+ * the link to it rather than left implicit.
+ *
  * Hiding navigation is not a security control. It decides what to render; the
  * API refuses the request regardless of what the browser drew.
  */
@@ -80,6 +88,7 @@ const SECTIONS: readonly {
   items: readonly {
     href: string;
     label: string;
+    capability?: Capability;
     icon: typeof CalendarDaysIcon;
     selectedIcon: typeof CalendarDaysIconSolid;
   }[];
@@ -92,6 +101,16 @@ const SECTIONS: readonly {
         label: 'Calendar',
         icon: CalendarDaysIcon,
         selectedIcon: CalendarDaysIconSolid,
+      },
+      {
+        href: '/documents',
+        label: 'Documents',
+        // Every role holds this, so unlike the treasury below, the hub is in
+        // everyone's sidebar. What officers get is the drafts and the editor,
+        // not the section itself.
+        capability: 'document:view',
+        icon: FolderIcon,
+        selectedIcon: FolderIconSolid,
       },
     ],
   },
@@ -200,11 +219,17 @@ export function AppSideNav() {
   // a hook inside a loop is fragile the moment the list stops being static, and
   // the server already flattened the role into exactly this array.
   const capabilities = activeClub?.capabilities ?? [];
-  const sections = SECTIONS.filter(
-    (section) =>
-      section.capability === undefined ||
-      capabilities.includes(section.capability),
-  );
+  const held = (capability: Capability | undefined) =>
+    capability === undefined || capabilities.includes(capability);
+
+  const sections = SECTIONS.filter((section) => held(section.capability))
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => held(item.capability)),
+    }))
+    // A section whose every item was filtered out is a heading with nothing
+    // under it, which is the thing the section-level gate exists to avoid.
+    .filter((section) => section.items.length > 0);
 
   return (
     <SideNav

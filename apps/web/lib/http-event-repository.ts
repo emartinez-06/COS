@@ -41,20 +41,14 @@ import type {
   Unsubscribe,
 } from '@cos/core';
 
+import {ApiError, readErrorMessage} from './api-error';
 import {apiFetch} from './auth-client';
 
+// Re-exported because this is where it was defined and imported from before the
+// document hub needed it too.
+export {ApiError};
+
 type Listener = (events: ClubEvent[]) => void;
-
-/** An API call that came back with a non-2xx status. */
-export class ApiError extends Error {
-  readonly status: number;
-
-  constructor(status: number, message: string) {
-    super(message);
-    this.name = 'ApiError';
-    this.status = status;
-  }
-}
 
 interface ClubSubscription {
   listeners: Set<Listener>;
@@ -356,17 +350,4 @@ export class HttpEventRepository implements EventRepository {
 /** True when there is no document (SSR) or the tab is on screen. */
 function isVisible(): boolean {
   return typeof document === 'undefined' || document.visibilityState !== 'hidden';
-}
-
-/** Best-effort message from an error response, which may not be JSON at all. */
-async function readErrorMessage(response: Response): Promise<string> {
-  try {
-    const body = (await response.json()) as {error?: string};
-    if (body.error) {
-      return body.error;
-    }
-  } catch {
-    // Fall through to the status text.
-  }
-  return response.statusText || `Request failed with ${response.status}`;
 }
