@@ -42,6 +42,33 @@ const envSchema = z.object({
         .map((origin) => origin.trim())
         .filter(Boolean),
     ),
+
+  /**
+   * S3-compatible object storage for uploaded documents.
+   *
+   * Defaults match the MinIO service in the repo-root docker-compose.yml, the
+   * same way DATABASE_URL matches the Postgres service. Point these at R2 or
+   * AWS in production; the client code does not change.
+   *
+   * Leave STORAGE_ENDPOINT empty to talk to real AWS S3, which is addressed by
+   * region rather than by endpoint.
+   */
+  STORAGE_ENDPOINT: z.string().default('http://localhost:9000'),
+  STORAGE_REGION: z.string().default('us-east-1'),
+  STORAGE_BUCKET: z.string().default('cos-documents'),
+  STORAGE_ACCESS_KEY_ID: z.string().default('cos_dev_access_key'),
+  STORAGE_SECRET_ACCESS_KEY: z.string().default('cos_dev_secret_key'),
+  /**
+   * Path-style addressing (`endpoint/bucket/key`) rather than virtual-host
+   * style (`bucket.endpoint/key`).
+   *
+   * Required for MinIO, because virtual-host style needs wildcard DNS that a
+   * localhost container does not have. AWS and R2 work either way.
+   */
+  STORAGE_FORCE_PATH_STYLE: z
+    .string()
+    .default('true')
+    .transform((value) => value !== 'false'),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -17,7 +17,9 @@ import {env} from '../env.js';
 import {closeDatabase, db} from './client.js';
 import {clubMembers, clubs} from './schema/club.js';
 import {user} from './schema/auth.js';
+import {documentRevisions, documents} from './schema/document.js';
 import {events} from './schema/event.js';
+import {DOCUMENT_SEEDS} from './seed-documents.js';
 import {buildSeedEventRows} from './seed-events.js';
 
 /**
@@ -126,6 +128,70 @@ async function seedEvents(authorId: string | undefined): Promise<void> {
   console.log(`  ${rows.length} events ready, anchored to today`);
 }
 
+/**
+ * Puts the demo document hub in place, attributed to the officer.
+ *
+ * Unlike events, these do not need re-anchoring to today - a constitution is
+ * not stale because it was written last month - so this skips documents that
+ * already exist rather than updating them. That also means an officer who
+ * edited a seeded document in the dev app does not lose the edit on the next
+ * `pnpm db:seed`.
+ */
+async function seedDocuments(authorId: string | undefined): Promise<void> {
+  if (!authorId) {
+    console.log('  no officer to attribute documents to, skipping documents');
+    return;
+  }
+
+  let created = 0;
+
+  for (const seed of DOCUMENT_SEEDS) {
+    const bodies = [...(seed.priorContent ?? []), seed.content];
+    const version = bodies.length;
+
+    // The document and every one of its revisions land together, so a hub can
+    // never contain a document whose current version has no body.
+    const inserted = await db
+      .insert(documents)
+      .values({
+        id: seed.id,
+        clubId: CLUB.id,
+        kind: 'text',
+        section: seed.section,
+        title: seed.title,
+        summary: seed.summary,
+        status: seed.status,
+        version,
+        createdBy: authorId,
+        updatedBy: authorId,
+      })
+      .onConflictDoNothing({target: documents.id})
+      .returning({id: documents.id});
+
+    if (inserted.length === 0) {
+      continue;
+    }
+
+    await db.insert(documentRevisions).values(
+      bodies.map((content, index) => ({
+        id: `rev_seed_${seed.id}_v${index + 1}`,
+        documentId: seed.id,
+        version: index + 1,
+        content,
+        authoredBy: authorId,
+      })),
+    );
+
+    created += 1;
+  }
+
+  console.log(
+    created === 0
+      ? `  ${DOCUMENT_SEEDS.length} documents already present`
+      : `  ${created} documents created`,
+  );
+}
+
 async function main(): Promise<void> {
   if (env.NODE_ENV === 'production') {
     throw new Error('Refusing to seed a production database.');
@@ -165,6 +231,7 @@ async function main(): Promise<void> {
   }
 
   await seedEvents(userIdByEmail.get('officer@example.com'));
+  await seedDocuments(userIdByEmail.get('officer@example.com'));
 
   console.log('\nSign in with:');
   for (const person of PEOPLE) {
