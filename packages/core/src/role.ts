@@ -26,6 +26,7 @@ export const STATEMENT = {
   announcement: ['draft'],
   expense: ['create', 'edit', 'delete', 'view'],
   member: ['invite', 'remove', 'view'],
+  document: ['create', 'edit', 'delete', 'view'],
 } as const satisfies Record<string, readonly string[]>;
 
 /** A resource the product gates access to. */
@@ -88,10 +89,22 @@ const CAPABILITIES: Record<Role, readonly Capability[]> = {
     'member:invite',
     'member:remove',
     'member:view',
+    // The document hub is the opposite of the treasury: everyone reads, only
+    // officers write. The club's rules and onboarding material are worthless if
+    // the people they govern cannot see them, while letting any member rewrite
+    // the bylaws would make them nobody's.
+    'document:create',
+    'document:edit',
+    'document:delete',
+    'document:view',
   ],
   // A member sees the roster. Knowing who else is in your own club is not
   // privileged information, and it is what makes the club feel like a club.
-  member: ['event:view', 'member:view'],
+  //
+  // `document:view` is what puts the hub in their sidebar. It shows published
+  // documents only - see `canSeeDraftDocuments`, which keys draft visibility to
+  // `document:edit` rather than maintaining a second list.
+  member: ['event:view', 'member:view', 'document:view'],
 };
 
 /** True when `role` is permitted to perform `capability`. */

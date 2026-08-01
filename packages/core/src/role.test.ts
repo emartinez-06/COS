@@ -22,6 +22,10 @@ describe('STATEMENT', () => {
     expect([...ALL_CAPABILITIES].sort()).toEqual(
       [
         'announcement:draft',
+        'document:create',
+        'document:delete',
+        'document:edit',
+        'document:view',
         'event:create',
         'event:delete',
         'event:edit',
@@ -154,9 +158,12 @@ describe('the treasury is officer-only', () => {
   });
 
   it('leaves a member with exactly the capabilities they are meant to have', () => {
-    // Guards against a grant leaking sideways when a resource is added.
+    // Guards against a grant leaking sideways when a resource is added. It has
+    // already earned its keep once: adding the document hub made this fail,
+    // which is the point - `document:view` is a deliberate widening of what a
+    // member may do, and it had to be stated here to land.
     expect([...capabilitiesFor('member')].sort()).toEqual(
-      ['event:view', 'member:view'].sort(),
+      ['event:view', 'member:view', 'document:view'].sort(),
     );
   });
 });

@@ -20,6 +20,15 @@
  */
 
 import type {ClubEvent, EventDraft} from './club-event.js';
+import type {
+  ClubDocument,
+  ClubDocumentDetail,
+  DocumentDraft,
+  DocumentPatch,
+  DocumentRevision,
+  DocumentRevisionDetail,
+  FileBytes,
+} from './document.js';
 
 /** Unsubscribes a listener registered with `subscribe`. */
 export type Unsubscribe = () => void;
@@ -62,4 +71,105 @@ export interface EventRepository {
    * this club's events - including changes this caller did not make.
    */
   subscribe(clubId: string, listener: (events: ClubEvent[]) => void): Unsubscribe;
+}
+
+/** Raised by `DocumentRepository.update` when someone else saved first. */
+export class DocumentVersionConflictError extends Error {
+  constructor(
+    /** The version now stored, which the caller has not seen. */
+    readonly currentVersion: number,
+    /** The version the caller was editing. */
+    readonly expectedVersion: number,
+  ) {
+    super(
+      `This document was changed by someone else (you edited version ${expectedVersion}, it is now version ${currentVersion})`,
+    );
+    this.name = 'DocumentVersionConflictError';
+  }
+}
+
+/**
+ * The document hub.
+ *
+ * Note the shape of the read side: `list` returns `ClubDocument` (metadata) and
+ * `get` returns `ClubDocumentDetail` (metadata plus body). That is not an
+ * accident of convenience - it is the port refusing to offer an operation that
+ * would fetch every body in the club at once. An implementation cannot
+ * accidentally make the hub expensive, because the interface gives it nowhere
+ * to put the content.
+ *
+ * There is deliberately **no `subscribe` here**, unlike `EventRepository`. A
+ * calendar is a small ordered list where re-sending the whole snapshot is
+ * cheap and correct. A document being typed into is neither: shipping the full
+ * body every few seconds is both wasteful and unable to merge two people's
+ * edits. Live document collaboration gets a purpose-built seam rather than a
+ * copied one - see docs/COLLABORATIVE-EDITING.md.
+ */
+export interface DocumentRepository {
+  /**
+   * The club's documents, without their bodies.
+   *
+   * What comes back depends on the caller's role: drafts are included only for
+   * someone who could edit them. The server decides that, not the caller.
+   */
+  list(clubId: string): Promise<ClubDocument[]>;
+
+  /** One document with its body, or null when it does not exist here. */
+  get(clubId: string, documentId: string): Promise<ClubDocumentDetail | null>;
+
+  /**
+   * Creates a document. `file` is required for a `file` draft and must be
+   * absent for a `text` one - the bytes never travel as JSON.
+   *
+   * The name travels with the bytes, as it does in `replaceFile`. It is what
+   * the hub offers the file back as, so a `FileBytes` without one would leave
+   * an implementation inventing a filename for a document the club uploaded.
+   */
+  create(
+    clubId: string,
+    draft: DocumentDraft,
+    file?: FileBytes & {name: string},
+  ): Promise<ClubDocumentDetail>;
+
+  /**
+   * Applies a partial update, writing a new revision when content changes.
+   *
+   * Throws `DocumentVersionConflictError` when `patch.expectedVersion` is not
+   * the version currently stored. Callers are expected to handle that as a
+   * real outcome rather than an exception path: someone else saving first is
+   * ordinary, not exceptional.
+   */
+  update(
+    clubId: string,
+    documentId: string,
+    patch: DocumentPatch,
+  ): Promise<ClubDocumentDetail>;
+
+  /** Removes a document from the hub. */
+  remove(clubId: string, documentId: string): Promise<void>;
+
+  /** The document's history, newest first, without bodies. */
+  revisions(clubId: string, documentId: string): Promise<DocumentRevision[]>;
+
+  /** One past revision, with the text it held. */
+  revision(
+    clubId: string,
+    documentId: string,
+    version: number,
+  ): Promise<DocumentRevisionDetail | null>;
+
+  /** The bytes of a `file` document, at `version` or the current one. */
+  download(
+    clubId: string,
+    documentId: string,
+    version?: number,
+  ): Promise<FileBytes>;
+
+  /** Replaces a `file` document's bytes, creating a new revision. */
+  replaceFile(
+    clubId: string,
+    documentId: string,
+    file: FileBytes & {name: string},
+    expectedVersion: number,
+  ): Promise<ClubDocumentDetail>;
 }
