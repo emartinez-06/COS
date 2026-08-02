@@ -1,0 +1,32 @@
+/*
+ * The sidebar toggle points at what it will do.
+ *
+ * One chevron that turns rather than two icons that swap, so the control reads
+ * as a single thing changing direction instead of blinking between two states.
+ * Rotating also means the transition is continuous - a swap has no in-between
+ * frame to animate.
+ *
+ * The icon rotates, not the button, for the same reason the settings gear does:
+ * turning the button box would take its focus ring and hover background with it.
+ *
+ * Motion tokens are Astryx's own. The COS theme puts `--duration-fast` at 140ms.
+ */
+
+.collapseButton svg {
+  transition: transform var(--duration-fast) var(--ease-standard);
+}
+
+.collapseButtonCollapsed svg {
+  transform: rotate(180deg);
+}
+
+/*
+ * Someone who asked for less motion still gets the direction change, because
+ * that is information rather than decoration - it says which way the sidebar
+ * will move. What they lose is the sweep between the two positions.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .collapseButton svg {
+    transition: none;
+  }
+}

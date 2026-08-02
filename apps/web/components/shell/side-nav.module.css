@@ -1,0 +1,32 @@
+/*
+ * The rail slides between its two widths instead of snapping.
+ *
+ * Astryx's SideNav sets `width: 260px` and `width: 48px` on the collapsed
+ * variant with no transition between them, so collapsing teleported the whole
+ * page: 212px of layout moved in a single frame, and the eye has nothing to
+ * follow. Animating the width means the calendar visibly grows into the space
+ * the rail gives back, which is the point of the control.
+ *
+ * Width is the only animated property. Transitioning `all` here would drag the
+ * background colour and every inherited property into it, and would fight the
+ * collapse button's own chevron rotation.
+ *
+ * 240ms (`--duration-medium-min`) rather than the 140ms fast band: this is a
+ * layout change across 212px, not a micro-interaction on a 28px icon, and at
+ * fast speed it still reads as a jump. `--ease-standard` is a strong ease-out,
+ * so it leaves quickly and settles softly rather than coasting.
+ */
+
+.rail {
+  transition: width var(--duration-medium-min) var(--ease-standard);
+}
+
+/*
+ * Reduced motion gets the end state immediately. The width change is layout,
+ * not decoration - it has to happen either way; what goes is the sweep.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .rail {
+    transition: none;
+  }
+}
