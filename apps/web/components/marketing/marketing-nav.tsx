@@ -24,7 +24,7 @@
  */
 
 import NextLink from 'next/link';
-import {useEffect, useState} from 'react';
+import {useEffect, useState, type CSSProperties} from 'react';
 import {Link} from '@astryxdesign/core/Link';
 import {HStack} from '@astryxdesign/core/Stack';
 import {Text} from '@astryxdesign/core/Text';
@@ -50,7 +50,15 @@ export function MarketingNav() {
   return (
     <HStack
       as="header"
-      className={`${styles.nav} ${hasScrolled ? styles.navScrolled : ''}`}
+      /**
+       * The navigation is part of the intro and arrives after the wall has
+       * built and the copy has opened, and it comes **down** from off-screen
+       * while the copy rises. Leaving it visible while the bricks fell made the
+       * entrance look like a page that had failed to load its middle rather
+       * than one assembling itself in order.
+       */
+      className={`${styles.nav} ${styles.introDown} ${hasScrolled ? styles.navScrolled : ''}`}
+      style={{'--mk-intro-delay': '1600ms'} as CSSProperties}
     >
       <HStack
         className={styles.navInner}

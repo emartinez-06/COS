@@ -30,8 +30,16 @@ interface Brick {
   tone: string;
   /** Label colour that clears its ground. */
   ink: string;
-  /** Roughly how wide, as a share of the row. Rotation makes it overlap. */
-  grow: number;
+  /**
+   * Width as a share of the row.
+   *
+   * Every item in a row is a fixed share and the shares deliberately do not
+   * add up to 100, so the remainder shows as bare ground between them. That
+   * leftover *is* the hole the brick sits in - when the children grew to fill
+   * the row instead, brick met wall edge to edge and there was no hole left to
+   * see.
+   */
+  width: number;
 }
 
 /**
@@ -45,13 +53,25 @@ interface Brick {
  */
 const ROWS: Brick[][] = [
   [
-    {label: 'Calendar', tone: 'var(--cos-mk-ink)', ink: '#fff', grow: 1.15},
-    {label: 'Documents', tone: 'var(--cos-mk-sage-pale)', ink: 'var(--cos-mk-ink)', grow: 1},
+    {label: 'Calendar', tone: 'var(--cos-mk-ink)', ink: '#fff', width: 22},
+    {
+      label: 'Documents',
+      tone: 'var(--cos-mk-sage-pale)',
+      ink: 'var(--cos-mk-ink)',
+      width: 20,
+    },
   ],
-  [{label: 'Treasury', tone: 'var(--cos-mk-cream-deep)', ink: 'var(--cos-mk-clay)', grow: 1.3}],
   [
-    {label: 'Members', tone: 'var(--cos-mk-clay)', ink: '#fff', grow: 0.95},
-    {label: 'Announcements', tone: 'var(--cos-mk-navy)', ink: '#fff', grow: 1.25},
+    {
+      label: 'Treasury',
+      tone: 'var(--cos-mk-cream-deep)',
+      ink: 'var(--cos-mk-clay)',
+      width: 23,
+    },
+  ],
+  [
+    {label: 'Members', tone: 'var(--cos-mk-clay)', ink: '#fff', width: 18},
+    {label: 'Announcements', tone: 'var(--cos-mk-navy)', ink: '#fff', width: 25},
   ],
 ];
 
@@ -70,23 +90,27 @@ const ROWS: Brick[][] = [
  */
 interface Drop {
   rotate: number;
-  fromY: number;
+  /** Any CSS length. Viewport units so the fall starts off-page at any size. */
+  fromY: string;
   delayMs: number;
 }
 
+/**
+ * Fall distances are viewport-relative so every brick genuinely starts above
+ * the top of the page rather than a fixed number of pixels above its own slot.
+ * The wall sits at the bottom of the first screen, so `100dvh` clears it on any
+ * window.
+ *
+ * The whole sequence finishes inside a second. It was 1.24s, and the hero copy
+ * now waits for it - so every millisecond here is a millisecond the headline is
+ * not on screen, which is a cost worth keeping small.
+ */
 const DROPS: Drop[] = [
-  {rotate: -3.2, fromY: 240, delayMs: 0},
-  {rotate: 2.4, fromY: 280, delayMs: 120},
-  {rotate: 1.8, fromY: 330, delayMs: 260},
-  {rotate: -2.6, fromY: 380, delayMs: 400},
-  {rotate: 1.4, fromY: 430, delayMs: 520},
-];
-
-/** Pale wall segments either side of each row's gap. */
-const WALL: {left: number; right: number}[] = [
-  {left: 0.55, right: 0.5},
-  {left: 0.85, right: 0.7},
-  {left: 0.4, right: 0.45},
+  {rotate: -3.2, fromY: '104dvh', delayMs: 0},
+  {rotate: 2.4, fromY: '110dvh', delayMs: 105},
+  {rotate: 1.8, fromY: '116dvh', delayMs: 215},
+  {rotate: -2.6, fromY: '122dvh', delayMs: 320},
+  {rotate: 1.4, fromY: '128dvh', delayMs: 425},
 ];
 
 export function BrickWall() {
@@ -97,16 +121,13 @@ export function BrickWall() {
     <div className={styles.wall} aria-hidden="true">
       {ROWS.map((row, rowIndex) => (
         <div className={styles.wallRow} key={rowIndex}>
-          <div
-            className={styles.wallBrick}
-            style={{flexGrow: WALL[rowIndex]?.left ?? 0.5}}
-          />
+          <div className={styles.wallBrick} />
 
           {row.map((brick) => {
             brickIndex += 1;
             const drop = DROPS[brickIndex] ?? {
               rotate: 0,
-              fromY: 420,
+              fromY: '110dvh',
               delayMs: 0,
             };
             return (
@@ -117,10 +138,10 @@ export function BrickWall() {
                   {
                     backgroundColor: brick.tone,
                     color: brick.ink,
-                    flexGrow: brick.grow,
+                    flexBasis: `${brick.width}%`,
                     // The keyframes read these; the stylesheet owns the motion.
                     '--mk-rotate': `${drop.rotate}deg`,
-                    '--mk-from-y': `${drop.fromY}px`,
+                    '--mk-from-y': drop.fromY,
                     '--mk-delay': `${drop.delayMs}ms`,
                   } as CSSProperties
                 }
@@ -132,7 +153,6 @@ export function BrickWall() {
 
           <div
             className={styles.wallBrick}
-            style={{flexGrow: WALL[rowIndex]?.right ?? 0.5}}
           />
         </div>
       ))}

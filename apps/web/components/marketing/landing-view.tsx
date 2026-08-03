@@ -14,6 +14,7 @@
  * officers get that the existing tools never covered, and how to start.
  */
 
+import type {CSSProperties} from 'react';
 import NextLink from 'next/link';
 import {Divider} from '@astryxdesign/core/Divider';
 import {Grid} from '@astryxdesign/core/Grid';
@@ -89,40 +90,75 @@ const CAPABILITIES: Capability[] = [
   },
 ];
 
+/**
+ * The hero copy.
+ *
+ * Every line carries `.intro`, so nothing here is on screen until the wall has
+ * finished building itself.
+ *
+ * The stagger runs **outward from the headline** rather than down the page:
+ * the h1 opens at 1320ms, the eyebrow above it and the lede below it follow
+ * together at 1420ms, and the buttons furthest out arrive last. Entrance order
+ * and reading order are different things - the eye lands on the headline first
+ * whatever the animation does, so opening on the eyebrow spends the first beat
+ * on the least important line.
+ *
+ * Deliberately not `useRevealOnScroll`: that hook exists for things further
+ * down the page that reveal when scrolled to, and this is already in view. It
+ * waits on the bricks, not on the scroll position.
+ */
 function Hero() {
-  const revealRef = useRevealOnScroll<HTMLDivElement>();
-
   return (
-    <VStack gap={6} align="center" width="100%" ref={revealRef}>
+    <VStack gap={6} align="center" width="100%">
       <VStack gap={4} align="center" maxWidth={860}>
         <Text
           type="supporting"
           weight="semibold"
           justify="center"
-          style={{
-            color: 'var(--cos-mk-clay)',
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-          }}
+          className={styles.intro}
+          style={
+            {
+              '--mk-intro-delay': '1420ms',
+              color: 'var(--cos-mk-clay)',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+            } as CSSProperties
+          }
         >
           Open source, for student clubs
         </Text>
 
-        <Heading level={1} className={styles.heroTitle} justify="center">
+        <Heading
+          level={1}
+          className={`${styles.heroTitle} ${styles.intro}`}
+          justify="center"
+          style={{'--mk-intro-delay': '1320ms'} as CSSProperties}
+        >
           Ten tools, one club,{' '}
           <Text type="inherit" className={styles.heroTitleAccent}>
             nothing connected.
           </Text>
         </Heading>
 
-        <Text type="large" className={styles.lede} justify="center">
+        <Text
+          type="large"
+          className={`${styles.lede} ${styles.intro}`}
+          justify="center"
+          style={{'--mk-intro-delay': '1420ms'} as CSSProperties}
+        >
           COS is the layer over the stack your club already runs on. Members get
           one place to look. Officers get the records a university department
           actually asks for.
         </Text>
       </VStack>
 
-      <HStack gap={3} wrap="wrap" justify="center">
+      <HStack
+        gap={3}
+        wrap="wrap"
+        justify="center"
+        className={styles.intro}
+        style={{'--mk-intro-delay': '1520ms'} as CSSProperties}
+      >
         <Link
           as={NextLink}
           href="/signup"
@@ -329,22 +365,34 @@ export function LandingView() {
 
   return (
     <VStack className={styles.root} gap={0} width="100%">
-      <MarketingNav />
-
       <VStack as="main" gap={0} width="100%">
-        <HStack className={`${styles.band} ${styles.bandPaper} ${styles.bandHero}`}>
-          <HStack className={styles.measure} justify="center">
-            <Hero />
-          </HStack>
-        </HStack>
-
         {/*
-          Outside the band, so it has no inline padding and the masonry runs
-          off both edges. A wall that stops short of the screen edge reads as
-          three floating cards with space between them, not as a wall with
-          bricks missing from it - and the missing bricks are the argument.
+          Navigation, hero copy, and the wall share one viewport-height column
+          so the wall is never cut by the fold. A half-visible bottom row makes
+          a wall look broken rather than deliberately unfinished; the hero copy
+          takes the leftover height and absorbs the difference between screens.
         */}
-        <BrickWall />
+        <div className={styles.firstScreen}>
+          <MarketingNav />
+
+          <div className={styles.firstScreenBody}>
+            <HStack
+              className={`${styles.band} ${styles.bandPaper} ${styles.bandHero}`}
+            >
+              <HStack className={styles.measure} justify="center">
+                <Hero />
+              </HStack>
+            </HStack>
+          </div>
+
+          {/*
+            Outside the band, so it has no inline padding and the masonry runs
+            off both edges. A wall that stops short of the screen edge reads as
+            three floating cards with space between them, not as a wall with
+            bricks missing from it - and the missing bricks are the argument.
+          */}
+          <BrickWall />
+        </div>
 
         <HStack className={`${styles.band} ${styles.bandCream}`}>
           <HStack className={styles.measure}>

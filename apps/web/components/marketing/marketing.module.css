@@ -182,40 +182,83 @@
  * is what makes the gaps in the middle read as *missing bricks* instead of as
  * spacing between three floating cards.
  */
+/**
+ * The whole first screen: navigation, hero copy, and the wall, in one viewport.
+ *
+ * A column rather than a stack of independent bands, because the wall's bottom
+ * row was being cut by the fold - the last two bricks were half-visible, which
+ * makes a wall look broken rather than deliberately unfinished. The hero copy
+ * takes the leftover space, so the wall is always fully on screen and the copy
+ * absorbs the difference between a laptop and a large monitor.
+ */
+.firstScreen {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.firstScreenBody {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+}
+
 .wall {
   width: 100%;
   display: flex;
   flex-direction: column;
   gap: var(--spacing-2);
   /**
-   * Clipped, with airspace above the first row for the bricks to fall through.
+   * Deliberately *not* clipped any more.
    *
-   * Unclipped, a brick falling 420px crossed the headline and the buttons on
-   * its way down - the hero read as having something thrown at it. The clip
-   * means each brick appears at the top of the wall's own space and drops into
-   * its slot, which is both tidier and closer to what the reference does.
-   *
-   * The padding is the visible part of the fall, so it has to be big enough
-   * that the drop is legible rather than a twitch at the last moment.
+   * It used to be, because bricks falling past the headline read as something
+   * being thrown at the text. That is no longer a problem: the copy is not on
+   * screen while they fall, so the full drop from the top of the page is the
+   * effect rather than a collision with it.
    */
-  overflow: hidden;
-  padding-top: clamp(56px, 7vw, 104px);
-  padding-bottom: var(--spacing-4);
+  overflow: visible;
+  /**
+   * Clearance for the fold, not decoration.
+   *
+   * A rotated brick's bounding box hangs below its row by roughly half its
+   * width times the sine of its angle - a few pixels here, more on a wide
+   * monitor where the same percentage is a wider brick. With only the row
+   * height budgeted, the bottom corners of the last row grazed the fold.
+   */
+  padding-bottom: var(--spacing-5);
 }
 
+/**
+ * Bricks centred, wall running to both edges, bare ground between them.
+ *
+ * The wall segments grow equally from a zero basis, so whatever width is left
+ * after the bricks is split evenly and the brick cluster lands on the row's
+ * centre line. `space-between` was tried first and is wrong here: it pins the
+ * first and last child to the edges and distributes the slack *between* items,
+ * so the bricks drifted left or right depending on how wide each side's wall
+ * segment happened to be.
+ *
+ * The row `gap` is the visible hole. It has to be a real gap rather than
+ * leftover flex slack, or it disappears the moment the arithmetic changes.
+ */
 .wallRow {
   display: flex;
   align-items: stretch;
-  gap: var(--spacing-2);
+  justify-content: center;
+  gap: clamp(10px, 2.4vw, 38px);
   width: 100%;
-  min-height: 82px;
+  min-height: 58px;
 }
 
 /** A plain wall segment. Deliberately featureless - it is the ground. */
 .wallBrick {
   background-color: var(--cos-mk-wall);
   border-radius: calc(var(--radius-base, 4px) * 2);
-  flex-basis: 0;
+  flex: 1 1 0;
   min-width: 0;
 }
 
@@ -243,17 +286,17 @@
 .brick {
   position: relative;
   z-index: 1;
-  flex-basis: 0;
+  flex: 0 0 auto;
   min-width: 0;
   display: flex;
   align-items: center;
-  padding-inline: var(--spacing-4);
+  padding-inline: var(--spacing-3);
   border-radius: calc(var(--radius-base, 4px) * 2);
   transform-origin: center center;
   will-change: transform, opacity;
   box-shadow: 0 18px 40px -22px rgba(14, 31, 60, 0.45);
   transform: rotate(var(--mk-rotate, 0deg));
-  animation: brickDrop 720ms cubic-bezier(0.16, 0.84, 0.44, 1) both;
+  animation: brickDrop 880ms cubic-bezier(0.16, 0.84, 0.44, 1) both;
   animation-delay: var(--mk-delay, 0ms);
 }
 
@@ -265,6 +308,63 @@
   to {
     transform: translateY(0) rotate(var(--mk-rotate, 0deg));
     opacity: 1;
+  }
+}
+
+/**
+ * The intro: the wall builds itself, and only then does the page speak.
+ *
+ * Everything carrying `.intro` waits for the last brick to land. The order
+ * after that is not top to bottom - the copy radiates **outward from the
+ * headline**, so the largest line arrives first and the smaller ones follow
+ * away from it in both directions. Reading order and entrance order are
+ * different things: the eye goes to the headline first regardless, so leading
+ * with the eyebrow spends the opening beat on the least important line.
+ *
+ * The cost is real and worth naming: this withholds the headline for well
+ * over a second, which is a later paint of the largest text on the page. It is
+ * a deliberate trade for the entrance, not an oversight.
+ *
+ * `both` fill keeps each element hidden through its own delay without any
+ * script staging it, exactly as the bricks work.
+ */
+.intro {
+  animation: introRise 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--mk-intro-delay, 1320ms);
+}
+
+@keyframes introRise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/**
+ * The top bar arrives from above, which is the opposite of the copy.
+ *
+ * Chrome that slides *up* into place reads as content, because that is how the
+ * rest of the page enters. Coming down from off-screen, it reads as a frame
+ * settling onto a page that is already there - and it matches where the bar
+ * actually lives.
+ */
+.introDown {
+  animation: introDrop 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--mk-intro-delay, 1320ms);
+}
+
+@keyframes introDrop {
+  from {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -613,5 +713,19 @@
     animation: none;
     transform: rotate(var(--mk-rotate, 0deg));
     opacity: 1;
+  }
+
+  /**
+   * No staged entrance, and specifically no delay.
+   *
+   * Someone who asked for less animation should not also be made to wait a
+   * second for the headline: the delay only exists to let the bricks finish,
+   * and the bricks are not moving. Everything is simply present.
+   */
+  .intro,
+  .introDown {
+    animation: none;
+    opacity: 1;
+    transform: none;
   }
 }
