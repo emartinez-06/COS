@@ -67,6 +67,26 @@ Ports carry a `subscribe` method where live updates matter, so one interface cov
 The rule to hold to: swapping an implementation must not change a component.
 If it would, the port is wrong and gets fixed rather than worked around.
 
+The same rule is applied one level down for anything else a surface could become coupled to.
+The marketing site's scroll animation, for instance, sits behind a single module so the page asks for the behaviour it wants and never names the library providing it.
+That is what makes the animation engine a replaceable detail rather than a decision baked into every component that moves.
+
+### The public site is a route group, not a second app
+
+`apps/web` serves both the marketing site at `/` and the product behind it.
+The landing page is a Next route group, which adds no path segment, so the two share one theme, one build, and one deployment.
+
+The reason is that the theme is a generated artifact compiled from a single source file.
+A separate marketing app would have to duplicate that pipeline, or the tokens would have to be extracted into another package, to buy an independent deploy cadence that nothing currently needs.
+
+This is deliberately *not* the mechanism that keeps the frontend decoupled for future platforms.
+That job belongs to `packages/core` and the API: a desktop or mobile client reuses the domain model and the HTTP contract, and a marketing page is not something it would ever ship.
+Splitting the marketing site out would answer a question nobody asked while leaving the real coupling untouched.
+
+One consequence worth stating, because it looks like an oversight otherwise: visiting `/` while signed in shows the marketing page rather than redirecting to the dashboard.
+The session cookie belongs to the API's origin, so the web origin cannot read it during server rendering, and resolving it on the client means showing the landing page first and replacing it a moment later.
+The navigation adapts its call to action instead, which costs nothing and flashes nothing.
+
 ### Permissions are capabilities, not roles
 
 Components ask whether the current viewer *may do a thing* (`can(role, 'event:create')`), never what role they hold.

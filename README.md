@@ -25,16 +25,21 @@ Every club officer inherits the same mess:
 COS is the one-stop shop that sits on top of the existing stack instead of fighting it.
 Low barrier of entry is the mantra: if a club only uses it as a page of redirects, that's already a win.
 
-## Planned capabilities
+## Capabilities
 
-| Area | What it does |
-|---|---|
-| Integration hub | One club page linking Notion, Box, Canva, GroupMe, and anything else the club already uses |
-| GroupMe bot | Announcements pushed to chat, activity pulled back into COS (first vertical slice, see [roadmap](docs/ROADMAP.md)) |
-| Live updates | Real-time feed of who is working on what |
-| Document hub | Upload once, members download forever: waivers, forms, constitutions |
-| Auditable records | Expense and activity trails exportable for university department audits |
-| Club life | Trip planning, community service tracking, fundraising, alumni support |
+This project is in early development, so the table says what runs today and what does not.
+See the [roadmap](docs/ROADMAP.md) for the order things are being built in, and why it is not the order originally planned.
+
+| Area | What it does | Status |
+|---|---|---|
+| Accounts and clubs | Sign-in, per-club roles, officer positions, invitations | Built |
+| Club calendar | Shared schedule, live across members without a refresh | Built |
+| Document hub | Upload once, members download forever: waivers, forms, constitutions, with an append-only revision history | Built |
+| Auditable spending | Funds, requests, and a balance that shows what is already promised as well as what is already spent | Built |
+| Integration hub | One club page linking Notion, Box, Canva, GroupMe, and anything else the club already uses | Planned |
+| GroupMe bot | Announcements pushed to chat, activity pulled back into COS | Planned |
+| Audit export | Spending records formatted for a university department | Planned, and waiting on a real department's format rather than on code |
+| Club life | Trip planning, community service tracking, fundraising, alumni support | Planned |
 
 ## Architecture
 
