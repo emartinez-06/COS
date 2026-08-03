@@ -29,6 +29,17 @@ import type {
   DocumentRevisionDetail,
   FileBytes,
 } from './document.js';
+import type {
+  ExpenseRequest,
+  ExpenseRequestDraft,
+  ExpenseRequestPatch,
+  Fund,
+  FundAllocation,
+  FundAllocationDraft,
+  FundDraft,
+  FundPatch,
+  RequestStatus,
+} from './treasury.js';
 
 /** Unsubscribes a listener registered with `subscribe`. */
 export type Unsubscribe = () => void;
@@ -172,4 +183,103 @@ export interface DocumentRepository {
     file: FileBytes & {name: string},
     expectedVersion: number,
   ): Promise<ClubDocumentDetail>;
+}
+
+/**
+ * The treasury.
+ *
+ * Reads return the club's funds, allocation entries, and requests as three
+ * lists, and the balance is folded from them by `summarizeFund` rather than
+ * fetched. That is deliberate: there is exactly one implementation of the
+ * arithmetic, it is pure, and it runs over data the screen already needed in
+ * order to draw its tables. An endpoint returning a precomputed total would be
+ * a second implementation of the most consequential calculation in the product,
+ * and the two would eventually disagree.
+ *
+ * There is deliberately **no `subscribe`**, unlike `EventRepository`. The
+ * calendar has one because the GroupMe bot is a writer with no browser, so
+ * changes originate where no tab can observe them. Nothing writes to the
+ * treasury except an officer in the app, and the bot's role here is the
+ * opposite - it answers `!budget` by *reading*. A reader needs no subscription.
+ *
+ * Revisit both of those when a club has years of history rather than a
+ * semester's: the fold is linear in requests, which is nothing at club scale
+ * and stops being free eventually. The fix then is to run the same
+ * `summarizeFund` on the server, not to write a second one in SQL.
+ */
+export interface TreasuryRepository {
+  /** Every fund the club holds, including closed ones. */
+  listFunds(clubId: string): Promise<Fund[]>;
+
+  createFund(clubId: string, draft: FundDraft): Promise<Fund>;
+
+  /**
+   * Edits a fund's identity, period, or rules. Never its balance - money
+   * enters a fund only through `allocate`.
+   */
+  updateFund(clubId: string, fundId: string, patch: FundPatch): Promise<Fund>;
+
+  /**
+   * Every allocation entry across the club's funds, newest first.
+   *
+   * Returned for the club rather than per fund because the summary folds over
+   * all of them at once, and one round trip is cheaper than one per fund.
+   */
+  listAllocations(clubId: string): Promise<FundAllocation[]>;
+
+  /**
+   * Records money entering a fund: the initial grant, a top-up, or a
+   * reduction as a negative amount.
+   *
+   * Append-only. There is no `updateAllocation` or `removeAllocation`, and
+   * that absence is the whole point - correcting an entry means recording the
+   * correction, so the original stays visible in the history.
+   */
+  allocate(
+    clubId: string,
+    fundId: string,
+    draft: FundAllocationDraft,
+  ): Promise<FundAllocation>;
+
+  /** Every request the club has filed, newest first. */
+  listRequests(clubId: string): Promise<ExpenseRequest[]>;
+
+  /**
+   * Files a request.
+   *
+   * `status` exists because the common path is a treasurer recording something
+   * they have *already* sent to the university rather than drafting it here
+   * first. Defaulting to `draft` and making every caller immediately patch
+   * would add a round trip to model a step that did not happen.
+   */
+  createRequest(
+    clubId: string,
+    draft: ExpenseRequestDraft,
+    status?: RequestStatus,
+  ): Promise<ExpenseRequest>;
+
+  /**
+   * Applies a partial update, including status transitions.
+   *
+   * Status moves through here rather than through a transition endpoint,
+   * because every transition is the treasurer recording something that already
+   * happened at the university. An API shaped like a workflow engine would be
+   * describing a system that does not exist.
+   */
+  updateRequest(
+    clubId: string,
+    requestId: string,
+    patch: ExpenseRequestPatch,
+  ): Promise<ExpenseRequest>;
+
+  /**
+   * Deletes a request that was never submitted.
+   *
+   * Drafts only. Anything the club actually asked for is cancelled instead, so
+   * that "we asked and withdrew" stays distinguishable from "we never asked" -
+   * a distinction an audit cares about and a delete would destroy. The API
+   * enforces it; the port documents it so no implementation invents a laxer
+   * rule.
+   */
+  removeRequest(clubId: string, requestId: string): Promise<void>;
 }
