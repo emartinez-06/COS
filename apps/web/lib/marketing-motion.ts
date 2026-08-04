@@ -22,7 +22,7 @@
  * the section makes - so it must survive when the animation does not.
  */
 
-import {useEffect, useRef} from 'react';
+import {useEffect, useRef, type RefObject} from 'react';
 import {animate, scroll} from 'motion';
 import Lenis from 'lenis';
 
@@ -194,6 +194,68 @@ export function useSettleGroup<T extends HTMLElement = HTMLElement>(
   };
 
   return {containerRef, register};
+}
+
+/**
+ * A scroll range, in the same vocabulary the reference sites use: where the
+ * target and the viewport must meet for progress to read 0, and where for 1.
+ *
+ * Deliberately typed as plain strings rather than re-exporting the engine's own
+ * offset type. A caller that imports a Motion type to describe its scroll range
+ * is coupled to Motion, which is the whole thing this module exists to prevent.
+ */
+export type ScrollRange = readonly [start: string, end: string];
+
+/** The engine's own offset type, kept internal to this file. */
+type EngineOffset = NonNullable<NonNullable<Parameters<typeof scroll>[1]>['offset']>;
+
+/**
+ * Reports how far a target has travelled through a scroll range, as 0..1.
+ *
+ * The lower-level sibling of {@link settleOnScroll}: that one is given the
+ * animation and wires it up, this one hands back a bare number and lets the
+ * caller decide what it means. The orbit needs this because its choreography is
+ * arithmetic over seven elements plus a pipe rather than a property tween, so
+ * there is no keyframe list to hand the engine.
+ *
+ * **The callback is expected to write to the DOM directly, not to set state.**
+ * This fires on every scroll frame, and routing that through React would
+ * re-render the section sixty times a second to move elements that React does
+ * not otherwise touch.
+ *
+ * Under reduced motion it reports `1` exactly once and never subscribes. That
+ * is the "keep the end state, drop only the sweep" rule this codebase already
+ * follows, and here the end state is load-bearing: progress 1 is the connected
+ * row, which *is* the argument the section makes. Reporting 0 instead would
+ * leave someone who asked for less motion looking at a scattered ring and no
+ * connection - the one thing the section exists to show.
+ */
+export function useScrollProgress(
+  targetRef: RefObject<HTMLElement | null>,
+  onProgress: (progress: number) => void,
+  range: ScrollRange = ['start end', 'center center'],
+): void {
+  // Held in a ref so a caller that rebuilds its callback each render does not
+  // tear down and re-subscribe the scroll listener on every render.
+  const handler = useRef(onProgress);
+  handler.current = onProgress;
+
+  const [rangeStart, rangeEnd] = range;
+
+  useEffect(() => {
+    const target = targetRef.current;
+    if (!target) return;
+
+    if (prefersReducedMotion()) {
+      handler.current(1);
+      return;
+    }
+
+    return scroll((progress: number) => handler.current(progress), {
+      target,
+      offset: [rangeStart, rangeEnd] as unknown as EngineOffset,
+    });
+  }, [targetRef, rangeStart, rangeEnd]);
 }
 
 /**

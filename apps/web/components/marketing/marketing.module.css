@@ -107,8 +107,19 @@
   color: var(--cos-mk-text-invert);
 }
 
-/** Centres a section's content on the shared measure. */
+/**
+ * Centres a section's content on the shared measure.
+ *
+ * The stacking is for the orbit's conduit, which starts in one section and runs
+ * down the page past several others. Every section's content being a positioned
+ * `z-index: 2` puts it above that pipe, while the sections' plain backgrounds -
+ * unpositioned, and therefore painted earlier - stay below it. The result is a
+ * pipe that runs *behind* the page's content and *over* its grounds, which is
+ * the only reading of it that does not look like a line drawn on top of a page.
+ */
 .measure {
+  position: relative;
+  z-index: 2;
   max-width: var(--cos-mk-measure);
   margin-inline: auto;
   width: 100%;
@@ -397,89 +408,508 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* The settling cards - the second-section moment.                      */
+/* The connection orbit - the second-section moment.                    */
 /* ------------------------------------------------------------------ */
 
 /**
- * The scatter.
+ * The section, which scrolls like any other block.
  *
- * Each card is drawn at its resting angle by CSS, and the scroll-linked
- * animation drives it to 0. Doing it in this direction matters: if JavaScript
- * never runs, the cards stay tilted and every one is still perfectly legible,
- * which is the failure mode worth having. The reverse - upright by default,
- * scattered by JS - would flash aligned cards on every load before scattering
- * them.
+ * An earlier version pinned this with `position: sticky` so the choreography
+ * could play against a section that never moved. It worked and it was reverted:
+ * pinning takes the scroll away from the reader, and this page is not worth
+ * that. See DECISIONS.md.
  *
- * The angle comes from the component as `--mk-rest-rotate` so the arrangement
- * lives with the content it describes rather than being split across two files.
+ * The extra `padding-block` is what replaces it. It lengthens the section's
+ * travel, which is what the animation is scrubbed against, so the sequence gets
+ * room to read without the page ever refusing to move. It is deliberately a
+ * small fraction of a viewport - enough to unhurry the sequence, not enough for
+ * anyone to notice the section is taller than it needs to be.
+ *
+ * `z-index: 0` makes this a stacking context, which contains the ring's own
+ * layering (icons at 1 and 3 around the copy at 2) so none of it can escape and
+ * argue with the rest of the page.
  */
-.settleCard {
-  transform: rotate(var(--mk-rest-rotate, 0deg))
-    translateY(var(--mk-rest-y, 0px));
-  transform-origin: center center;
-  will-change: transform;
+.orbitSection {
+  position: relative;
+  z-index: 0;
+  width: 100%;
+  min-width: 0;
+  padding-block: var(--orbit-pad, 17vh);
+
+  /* Written every frame by the component, and declared here so the section has
+     a sane resting appearance if the script never runs: no row, no connection,
+     just the ring. Declared on the section rather than the stage because the
+     conduit lives outside the stage and needs them too. */
+  --orbit-lineup: 0;
+  --orbit-connected: 0;
 }
 
 /**
- * The tool cards themselves.
+ * The stage: the composition's own box.
  *
- * Deliberately not Astryx `Card`: these are decorative objects representing
- * other products, not product surfaces, and Card's elevation and padding are
- * tuned for dashboard widgets. `astryx build` returns no marketing card block,
- * which is the honest signal that this is outside the system's remit.
+ * Its height is the choreography's vertical budget - the ring's far edge sits
+ * above the copy, its near edge below, and the connected row below that again.
+ *
+ * **Deliberately shorter than the viewport.** It was a full `100dvh` while the
+ * section was pinned, which was free then because the stage never moved. Now
+ * that the page scrolls normally the composition travels, and a box as tall as
+ * the window is never fully in view while it is travelling. At roughly three
+ * quarters the composition can move a couple of hundred pixels and still be
+ * whole on the screen the entire time, which is what buys the sequence room to
+ * play without the page having to hold still for it.
+ *
+ * `overflow: hidden` is load-bearing rather than tidy. The ring is deliberately
+ * wider than the text measure, so on a narrow screen an icon at the ring's left
+ * extreme sits past the edge of the page - and an element past the edge is
+ * horizontal scroll, which is the one layout failure that makes a whole site
+ * feel broken.
  */
-/* Sized for a mark and a name. It carried a description line until that was
-   cut as text the reader gains nothing from - the tool's name is the whole
-   point, and a caption explaining what Canva is talks down to the reader. */
-.toolCard {
-  border-radius: calc(var(--radius-base, 4px) * 4);
-  padding: var(--spacing-4);
-  min-height: 104px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: var(--spacing-3);
-  border: 1px solid var(--cos-mk-hairline);
-  background-color: #fff;
-  box-shadow:
-    0 1px 2px rgba(14, 31, 60, 0.04),
-    0 12px 32px -12px rgba(14, 31, 60, 0.18);
+.orbitStage {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  height: var(--orbit-stage-h, 78dvh);
+  overflow: hidden;
+
+  /* The measured source of truth for the tile size: the geometry reads this off
+     the computed style rather than carrying its own copy, so the narrow
+     overrides below cannot put the arithmetic out of step with the layout. */
+  --orbit-tile: 66px;
 }
 
-/** The swatch that stands in for each tool's mark. */
-.toolMark {
-  width: 34px;
-  height: 34px;
-  border-radius: calc(var(--radius-base, 4px) * 2.5);
+/**
+ * The ring's own path, drawn faintly.
+ *
+ * Without it the icons read as seven tiles drifting independently; with it they
+ * read as objects riding one thing. It fades out as they leave, because a track
+ * with nothing on it is just a shape on the page.
+ */
+.orbitRing {
+  position: absolute;
+  left: 50%;
+  top: var(--orbit-centre-y, 45%);
+  width: var(--orbit-ring-w, 930px);
+  height: var(--orbit-ring-h, 390px);
+  transform: translate(-50%, -50%);
+  border: 1px solid var(--cos-mk-hairline);
+  border-radius: 50%;
+  opacity: calc(0.9 * (1 - var(--orbit-lineup)));
+  pointer-events: none;
+}
+
+/**
+ * The copy, at the ring's centre and between its two halves.
+ *
+ * `z-index: 2` is the whole depth effect: icons on the near side of the ring
+ * are put at 3 and pass in front of the text, icons on the far side at 1 and
+ * pass behind it. The wrapper exists because `.reveal` animates `transform` on
+ * its own element, and it cannot do that while also holding the centring
+ * translate - so the outer box centres and the inner one reveals.
+ */
+.orbitCopy {
+  position: absolute;
+  left: 50%;
+  top: var(--orbit-centre-y, 45%);
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  width: min(100%, 620px);
+}
+
+/**
+ * The icons' container.
+ *
+ * It must not create a stacking context - no `z-index`, no `transform`, no
+ * `opacity`. If it did, its children would be sealed inside it and every icon
+ * would paint on the same side of the copy, which is the effect this section is
+ * built around.
+ */
+.orbitNodes {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  pointer-events: none;
+}
+
+/**
+ * One icon.
+ *
+ * Anchored at the ring's centre; the component's inline transform carries it
+ * out to wherever it currently belongs, including the `-50%` that centres it on
+ * that point. Keeping the anchor fixed means every frame writes `transform` and
+ * `opacity` only - both compositor properties - and never touches layout.
+ */
+.orbitNode {
+  position: absolute;
+  left: 50%;
+  top: var(--orbit-centre-y, 45%);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 700;
-  font-size: 0.9375rem;
-  color: #fff;
-  letter-spacing: -0.02em;
+  width: var(--orbit-tile);
+  height: var(--orbit-tile);
+  transform-origin: center center;
+  transform-style: preserve-3d;
+  will-change: transform, opacity;
 }
 
 /**
- * The connector line under the settled row, which is the point of the section:
- * six separate things, one layer beneath them.
+ * The tile the mark sits on.
  *
- * Restyles Astryx `Divider` rather than drawing a bare element, so it stays a
- * real separator in the accessibility tree instead of a decorative box.
+ * White, because it carries a real vendor logo. Seven full-colour brand marks
+ * on seven different coloured grounds is a colour argument nobody wins, and
+ * several of these logos are themselves mostly one strong colour.
+ *
+ * **The shadow is driven by depth, and that is what sells the third dimension.**
+ * A fixed shadow on a scaling tile reads as a picture of a tile getting bigger;
+ * a shadow that lengthens, softens, and deepens as the icon comes toward the
+ * viewer reads as the icon coming toward the viewer. `--orbit-depth` is 0 at
+ * the ring's far edge and 1 at its near edge, written per frame.
  */
-.connector {
-  height: 2px;
+.orbitTile {
+  position: relative;
+  z-index: 1;
   width: 100%;
-  border: none;
-  border-radius: 2px;
+  height: 100%;
+  border-radius: calc(var(--radius-base, 4px) * 3.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border: 1px solid var(--cos-mk-hairline);
+  color: var(--cos-mk-ink);
+  font-weight: 700;
+  font-size: 1.0625rem;
+  letter-spacing: -0.02em;
+  box-shadow:
+    0 calc(1px + 3px * var(--orbit-depth, 0.5))
+      calc(2px + 6px * var(--orbit-depth, 0.5))
+      calc(-1px - 1px * var(--orbit-depth, 0.5))
+      rgba(14, 31, 60, calc(0.06 + 0.1 * var(--orbit-depth, 0.5))),
+    0 calc(4px + 22px * var(--orbit-depth, 0.5))
+      calc(10px + 40px * var(--orbit-depth, 0.5))
+      calc(-6px - 10px * var(--orbit-depth, 0.5))
+      rgba(14, 31, 60, calc(0.1 + 0.34 * var(--orbit-depth, 0.5)));
+}
+
+.orbitLogo {
+  width: 64%;
+  height: 64%;
+  object-fit: contain;
+  display: block;
+  /* Several of these marks are wider than they are tall (Box, OneDrive);
+     contain keeps them from being stretched to a square they are not. */
+}
+
+/**
+ * The wind: a smear of the icon's own colour, behind it, along its heading.
+ *
+ * Driven by the distance the icon actually covered since the previous frame,
+ * so it appears during the swoop, is absent while the ring merely drifts, and
+ * fades when the reader stops scrolling - none of which are special cases in
+ * the code, they all fall out of the speed being real.
+ *
+ * `scaleX` after `rotate` stretches along the heading rather than along the
+ * screen's x axis, which is the difference between a smear and a smudge.
+ */
+.orbitSmear {
+  position: absolute;
+  inset: -14%;
+  z-index: 0;
+  border-radius: 40%;
+  background: var(--orbit-smear-tone, var(--cos-mk-navy));
+  opacity: var(--orbit-smear-opacity, 0);
+  transform: rotate(var(--orbit-smear-angle, 0deg))
+    scaleX(var(--orbit-smear-stretch, 1));
+  filter: blur(7px);
+  pointer-events: none;
+}
+
+/**
+ * The tool's name.
+ *
+ * Absolutely positioned so it cannot widen the icon it belongs to - the row's
+ * spacing is computed from the tile, and a long name pushing its own box wider
+ * would silently break that arithmetic.
+ *
+ * It is invisible for most of the scroll but never absent from the accessibility
+ * tree: this is the accessible name for the mark beside it, which is
+ * `aria-hidden`. Opacity, not `display: none`, for exactly that reason.
+ */
+.orbitLabel {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--cos-mk-text-muted);
+  opacity: var(--orbit-connected);
+}
+
+/**
+ * The connection itself, running behind the settled row.
+ *
+ * At `z-index: 2` it sits under the icons (which land at 3) and over the copy,
+ * so the line appears to pass *through* the row rather than in front of it.
+ */
+.orbitPipe {
+  position: absolute;
+  left: 50%;
+  top: var(--orbit-row-y, 77%);
+  width: var(--orbit-row-span, 792px);
+  height: 3px;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  opacity: var(--orbit-connected);
+  pointer-events: none;
+}
+
+/**
+ * Deliberately more present than a hairline rule.
+ *
+ * This line *is* the statement - it is the only thing on screen saying these
+ * seven separate products are joined - so a whisper of a rule reads as a border
+ * rather than as a connection.
+ */
+.orbitPipeTrack {
+  position: absolute;
+  inset: 0;
+  border-radius: 3px;
   background: linear-gradient(
     90deg,
     transparent,
-    var(--cos-mk-navy) 12%,
-    var(--cos-mk-navy) 88%,
+    var(--cos-mk-navy) 7%,
+    var(--cos-mk-navy) 93%,
     transparent
   );
-  opacity: 0.5;
+  opacity: 0.75;
+}
+
+/**
+ * A light travelling the pipe, from one end toward the centre.
+ *
+ * Each runner spans half the pipe with its dot at one edge, so a translate of
+ * `100%` moves the dot by exactly half the pipe's width - percentages resolve
+ * against the runner's own box. That is what lets one keyframe work at every
+ * screen width without the width ever being written into the animation.
+ *
+ * **They converge rather than march**, because the direction is the claim: the
+ * tools feed a single conduit, and the conduit leaves from the centre. Lights
+ * all travelling the same way would say the row is a bus with an arbitrary
+ * upstream end.
+ *
+ * These run continuously rather than being started on arrival. The pipe's own
+ * opacity gates them, and browsers already throttle animations on off-screen
+ * content, so a state machine here would buy nothing.
+ */
+.orbitFlow {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  animation-duration: 6.4s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-delay: calc(var(--orbit-pulse-index, 0) * -3.2s);
+}
+
+.orbitFlowFromLeft {
+  left: 0;
+  animation-name: orbitFlowRight;
+}
+
+.orbitFlowFromRight {
+  left: 50%;
+  animation-name: orbitFlowLeft;
+}
+
+.orbitPulse {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 46px;
+  height: 5px;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--cos-mk-amber) 45%,
+    #fff2dd 50%,
+    var(--cos-mk-amber) 55%,
+    transparent
+  );
+  box-shadow: 0 0 16px 3px rgba(224, 164, 88, 0.75);
+}
+
+@keyframes orbitFlowRight {
+  from {
+    transform: translateX(-12%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes orbitFlowLeft {
+  from {
+    transform: translateX(112%);
+  }
+  to {
+    transform: translateX(0%);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* The conduit: what the row collects, leaving down the page.          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Runs from the centre of the connected row to the bottom of the page.
+ *
+ * Its `top` is the section's own padding plus the row's position within the
+ * stage, expressed from the same ratio the geometry uses, so the pipe and the
+ * row cannot drift apart. Its height is measured, because "the end of the page"
+ * is a real place and no fixed viewport multiple lands on it.
+ *
+ * It is a sibling of the stage, not a child: the stage clips its own overflow
+ * and this deliberately runs well past it. It paints above the following
+ * sections' backgrounds and below their content - see the `z-index` on
+ * `.measure`.
+ */
+.orbitConduit {
+  position: absolute;
+  left: 50%;
+  top: calc(
+    var(--orbit-pad, 17vh) + var(--orbit-stage-h, 78dvh) *
+      var(--orbit-row-ratio, 0.8)
+  );
+  width: 3px;
+  transform: translateX(-50%);
+  opacity: var(--orbit-connected);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/**
+ * Fades out toward its end rather than stopping dead.
+ *
+ * A pipe that ends at a hard edge claims a destination, and there is not one
+ * yet - the dashboard section it will eventually feed does not exist. Fading is
+ * the honest rendering of "continues, but not to anywhere built".
+ *
+ * It also solves a contrast problem for free: the page's last band is ink, and
+ * a navy line is invisible on it. The fade is finished by the time it arrives.
+ */
+/**
+ * Strong where it leaves the row, faint for the long run, gone by the end.
+ *
+ * The first stretch is the connection being made and has to read as solid. The
+ * rest of it crosses three sections of body copy, and a full-strength rule down
+ * the middle of a paragraph competes with the paragraph - it paints *behind*
+ * the text (see `.measure`), but a line visible in every gap between words is
+ * still something the eye keeps returning to.
+ *
+ * Fading out rather than stopping also keeps it honest: a pipe that ends at a
+ * hard edge claims a destination, and there is not one yet - the dashboard
+ * section it will eventually feed does not exist. It solves a contrast problem
+ * for free, too, since the page's last band is ink and a navy line would be
+ * invisible on it.
+ */
+.orbitConduitTrack {
+  position: absolute;
+  inset: 0;
+  border-radius: 3px;
+  background: linear-gradient(
+    180deg,
+    var(--cos-mk-navy) 0%,
+    var(--cos-mk-navy) 8%,
+    rgba(27, 59, 111, 0.34) 22%,
+    rgba(27, 59, 111, 0.26) 65%,
+    rgba(27, 59, 111, 0) 100%
+  );
+  opacity: 0.8;
+}
+
+.orbitConduitFlow {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 100%;
+  animation: orbitConduitRun 9s linear infinite;
+  animation-delay: calc(var(--orbit-pulse-index, 0) * -3s);
+}
+
+.orbitConduitPulse {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 5px;
+  height: 54px;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    var(--cos-mk-amber) 45%,
+    #fff2dd 50%,
+    var(--cos-mk-amber) 55%,
+    transparent
+  );
+  box-shadow: 0 0 16px 3px rgba(224, 164, 88, 0.6);
+}
+
+@keyframes orbitConduitRun {
+  from {
+    transform: translateY(0%);
+  }
+  /* Stops short of the end, where the track has already faded to nothing - a
+     light arriving at a pipe that is no longer drawn looks like a bug. */
+  to {
+    transform: translateY(76%);
+  }
+}
+
+@media (max-width: 720px) {
+  /* The tiles shrink rather than the count changing - dropping tools on small
+     screens would change what the section claims. */
+  .orbitStage {
+    --orbit-tile: 46px;
+  }
+
+  .orbitLabel {
+    font-size: 0.6875rem;
+    top: calc(100% + 7px);
+  }
+}
+
+/**
+ * Phone width, where seven icons in one row stop fitting honestly.
+ *
+ * Two things break at 390px and neither one overflows anything, so both were
+ * found by looking. The row's spacing had fallen *below* the tile size, so the
+ * icons met edge to edge and the connection they were supposed to be joined by
+ * was hidden behind them - a solid bar rather than seven connected things. And
+ * the captions, wider than the tiles they sit under, ran together into "Teams
+ * GroupMe Notion".
+ *
+ * The tile shrinks until the gaps come back. The labels are *hidden rather than
+ * shrunk*, because there is no size at which seven of them fit across a phone
+ * and are still worth reading. They stay in the DOM at zero opacity, so they
+ * remain the accessible name for the mark beside them - a screen reader is not
+ * short of horizontal room.
+ */
+@media (max-width: 430px) {
+  .orbitStage {
+    --orbit-tile: 38px;
+  }
+
+  .orbitLabel {
+    opacity: 0;
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -689,11 +1119,33 @@
 @media (prefers-reduced-motion: reduce) {
   /**
    * Keep the end state, drop only the sweep - the same rule the sidebar and
-   * settings-gear modules follow. The settled row *is* the argument this
+   * settings-gear modules follow. The connected row *is* the argument this
    * section makes, so it must be what someone sees when the motion is gone.
+   *
+   * The positions themselves are not reset here, because they are not CSS: the
+   * component's own reduced-motion branch reports a scroll progress of 1 once
+   * and the icons are written straight to their settled places. What this rule
+   * covers is the part CSS owns - the ring guide has nothing left to guide, and
+   * the travelling lights are an indefinite loop, which is close to the
+   * definition of what this setting is asking to be spared.
    */
-  .settleCard {
-    transform: none;
+  .orbitRing {
+    opacity: 0;
+  }
+
+  .orbitFlow,
+  .orbitConduitFlow {
+    animation: none;
+  }
+
+  /**
+   * The smear is motion made visible, so under this setting there is no motion
+   * for it to be. It is also driven by a frame loop that does not run here, and
+   * a `filter: blur()` left on seven elements costs compositing for something
+   * permanently at zero opacity.
+   */
+  .orbitSmear {
+    display: none;
   }
 
   .reveal {
@@ -706,7 +1158,7 @@
    *
    * This is the same "keep the end state" rule, and here it is load-bearing in
    * a way it is not elsewhere: the crookedness *is* the design. Resetting
-   * `transform` the way `.settleCard` does would leave a tidy squared-up wall,
+   * `transform` the way a settling element would leave a tidy squared-up wall,
    * which is the one outcome this section exists to avoid.
    */
   .brick {

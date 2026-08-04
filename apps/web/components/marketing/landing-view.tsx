@@ -33,7 +33,7 @@ import {
 import {useRevealOnScroll, useSmoothScroll} from '../../lib/marketing-motion';
 import {BrickWall} from './brick-wall';
 import {MarketingFooter, MarketingNav} from './marketing-nav';
-import {SettlingCards} from './settling-cards';
+import {OrbitConnect} from './orbit-connect';
 import styles from './marketing.module.css';
 
 /**
@@ -396,7 +396,7 @@ export function LandingView() {
 
         <HStack className={`${styles.band} ${styles.bandCream}`}>
           <HStack className={styles.measure}>
-            <SettlingCards />
+            <OrbitConnect />
           </HStack>
         </HStack>
 

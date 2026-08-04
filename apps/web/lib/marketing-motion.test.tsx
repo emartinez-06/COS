@@ -18,12 +18,14 @@
  * that a test needing one to match should override it locally. This does.
  */
 
+import {useRef} from 'react';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {cleanup, render} from '@testing-library/react';
 
 import {
   prefersReducedMotion,
   useRevealOnScroll,
+  useScrollProgress,
   useSettleGroup,
   type RestState,
 } from './marketing-motion';
@@ -137,6 +139,48 @@ describe('useRevealOnScroll with motion allowed', () => {
     const {unmount} = render(<RevealProbe />);
     unmount();
     expect(disconnect).toHaveBeenCalled();
+  });
+});
+
+/**
+ * Records every progress value the hook reports, which is the only observable
+ * behaviour it has - it deliberately writes no state and touches no DOM itself.
+ */
+function ProgressProbe({onProgress}: {onProgress: (value: number) => void}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  useScrollProgress(ref, onProgress);
+  return <div ref={ref} data-testid="stage" />;
+}
+
+describe('useScrollProgress under reduced motion', () => {
+  it('reports the connected end state rather than the scattered start', () => {
+    /**
+     * This is the silent failure this whole file exists for, and the orbit has
+     * the sharpest version of it yet. The hook never subscribes under reduced
+     * motion, so whatever it reports once is what the section looks like
+     * forever for that visitor. Reporting 0 would leave them staring at a ring
+     * of unconnected tools with no connection ever drawn - the exact opposite
+     * of the point the section is making, and visible to nobody testing
+     * without the setting on.
+     */
+    stubReducedMotion(true);
+    const seen: number[] = [];
+    render(<ProgressProbe onProgress={(value) => seen.push(value)} />);
+
+    expect(seen).toEqual([1]);
+  });
+
+  it('reports once and never subscribes to scrolling', () => {
+    stubReducedMotion(true);
+    const seen: number[] = [];
+    const {unmount} = render(
+      <ProgressProbe onProgress={(value) => seen.push(value)} />,
+    );
+
+    window.dispatchEvent(new Event('scroll'));
+    unmount();
+
+    expect(seen).toEqual([1]);
   });
 });
 
