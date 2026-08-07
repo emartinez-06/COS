@@ -421,9 +421,11 @@
  *
  * The extra `padding-block` is what replaces it. It lengthens the section's
  * travel, which is what the animation is scrubbed against, so the sequence gets
- * room to read without the page ever refusing to move. It is deliberately a
- * small fraction of a viewport - enough to unhurry the sequence, not enough for
- * anyone to notice the section is taller than it needs to be.
+ * room to read without the page ever refusing to move. Raised from 17vh once
+ * the first value read as too quick - the ring swept into its row within a
+ * scroll or two, which lands as things moving before the reader has a reason
+ * why. More travel is still a page that is a bit taller, never a page that
+ * argues with the scroll.
  *
  * `z-index: 0` makes this a stacking context, which contains the ring's own
  * layering (icons at 1 and 3 around the copy at 2) so none of it can escape and
@@ -434,7 +436,7 @@
   z-index: 0;
   width: 100%;
   min-width: 0;
-  padding-block: var(--orbit-pad, 17vh);
+  padding-block: var(--orbit-pad, 30vh);
 
   /* Written every frame by the component, and declared here so the section has
      a sane resting appearance if the script never runs: no row, no connection,
@@ -603,30 +605,6 @@
 }
 
 /**
- * The wind: a smear of the icon's own colour, behind it, along its heading.
- *
- * Driven by the distance the icon actually covered since the previous frame,
- * so it appears during the swoop, is absent while the ring merely drifts, and
- * fades when the reader stops scrolling - none of which are special cases in
- * the code, they all fall out of the speed being real.
- *
- * `scaleX` after `rotate` stretches along the heading rather than along the
- * screen's x axis, which is the difference between a smear and a smudge.
- */
-.orbitSmear {
-  position: absolute;
-  inset: -14%;
-  z-index: 0;
-  border-radius: 40%;
-  background: var(--orbit-smear-tone, var(--cos-mk-navy));
-  opacity: var(--orbit-smear-opacity, 0);
-  transform: rotate(var(--orbit-smear-angle, 0deg))
-    scaleX(var(--orbit-smear-stretch, 1));
-  filter: blur(7px);
-  pointer-events: none;
-}
-
-/**
  * The tool's name.
  *
  * Absolutely positioned so it cannot widen the icon it belongs to - the row's
@@ -737,12 +715,12 @@
   background: linear-gradient(
     90deg,
     transparent,
-    var(--cos-mk-amber) 45%,
-    #fff2dd 50%,
-    var(--cos-mk-amber) 55%,
+    var(--cos-mk-navy) 45%,
+    #eef3fb 50%,
+    var(--cos-mk-navy) 55%,
     transparent
   );
-  box-shadow: 0 0 16px 3px rgba(224, 164, 88, 0.75);
+  box-shadow: 0 0 16px 3px rgba(27, 59, 111, 0.75);
 }
 
 @keyframes orbitFlowRight {
@@ -784,7 +762,7 @@
   position: absolute;
   left: 50%;
   top: calc(
-    var(--orbit-pad, 17vh) + var(--orbit-stage-h, 78dvh) *
+    var(--orbit-pad, 30vh) + var(--orbit-stage-h, 78dvh) *
       var(--orbit-row-ratio, 0.8)
   );
   width: 3px;
@@ -854,12 +832,12 @@
   background: linear-gradient(
     180deg,
     transparent,
-    var(--cos-mk-amber) 45%,
-    #fff2dd 50%,
-    var(--cos-mk-amber) 55%,
+    var(--cos-mk-navy) 45%,
+    #eef3fb 50%,
+    var(--cos-mk-navy) 55%,
     transparent
   );
-  box-shadow: 0 0 16px 3px rgba(224, 164, 88, 0.6);
+  box-shadow: 0 0 16px 3px rgba(27, 59, 111, 0.6);
 }
 
 @keyframes orbitConduitRun {
@@ -1136,16 +1114,6 @@
   .orbitFlow,
   .orbitConduitFlow {
     animation: none;
-  }
-
-  /**
-   * The smear is motion made visible, so under this setting there is no motion
-   * for it to be. It is also driven by a frame loop that does not run here, and
-   * a `filter: blur()` left on seven elements costs compositing for something
-   * permanently at zero opacity.
-   */
-  .orbitSmear {
-    display: none;
   }
 
   .reveal {

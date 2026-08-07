@@ -58,16 +58,6 @@ interface Tool {
   name: string;
   /** Initials, shown only if a tool has no logo yet. */
   mark: string;
-  /**
-   * The tool's own colour, used for its motion smear rather than for the tile.
-   *
-   * The tiles are white now that they carry real brand marks - a Microsoft or
-   * Notion logo on a coloured ground fights the ground, and seven different
-   * grounds behind seven different brands is a colour argument nobody wins.
-   * The tone survives because the smear behind a moving icon reads better
-   * tinted to the thing that is moving.
-   */
-  tone: string;
   /** The real mark. Falls back to `mark` when absent. */
   logo?: string;
 }
@@ -84,13 +74,13 @@ interface Tool {
  * sharp at every point in the orbit while a raster would soften as it scales.
  */
 const TOOLS: Tool[] = [
-  {name: 'Box', mark: 'Bx', tone: '#0061D5', logo: '/logos/box.svg'},
-  {name: 'Outlook', mark: 'Ol', tone: '#0F6CBD', logo: '/logos/outlook.svg'},
-  {name: 'Teams', mark: 'Tm', tone: '#5B5FC7', logo: '/logos/teams.svg'},
-  {name: 'GroupMe', mark: 'GM', tone: '#00AFF0', logo: '/logos/groupme.svg'},
-  {name: 'Notion', mark: 'No', tone: '#191918', logo: '/logos/notion.svg'},
-  {name: 'Excel', mark: 'Xl', tone: '#107C41', logo: '/logos/excel.svg'},
-  {name: 'OneDrive', mark: 'OD', tone: '#0364B8', logo: '/logos/onedrive.svg'},
+  {name: 'Box', mark: 'Bx', logo: '/logos/box.svg'},
+  {name: 'Outlook', mark: 'Ol', logo: '/logos/outlook.svg'},
+  {name: 'Teams', mark: 'Tm', logo: '/logos/teams.svg'},
+  {name: 'GroupMe', mark: 'GM', logo: '/logos/groupme.svg'},
+  {name: 'Notion', mark: 'No', logo: '/logos/notion.svg'},
+  {name: 'Excel', mark: 'Xl', logo: '/logos/excel.svg'},
+  {name: 'OneDrive', mark: 'OD', logo: '/logos/onedrive.svg'},
 ];
 
 /**
@@ -114,21 +104,6 @@ const DRIFT_RADIANS_PER_SECOND = 0.11;
  */
 const FLUTTER_DEGREES = 2.2;
 const FLUTTER_RADIANS_PER_SECOND = 1.7;
-
-/**
- * The speed, in px/sec, at which an icon's smear reaches full strength.
- *
- * Measured from real scrolling rather than picked: an unhurried scroll through
- * the lineup moves an icon a few hundred px/sec, and a flick moves it far
- * faster. Anchoring "full" near the top of the ordinary range means the smear
- * is present through the swoop and absent while the ring merely drifts.
- */
-const SMEAR_REFERENCE_SPEED = 850;
-const SMEAR_MAX_STRETCH = 1.5;
-const SMEAR_MAX_OPACITY = 0.5;
-
-/** Weight of the previous frame's speed, smoothing the smear against jitter. */
-const SMEAR_SMOOTHING = 0.82;
 
 /**
  * The single place a placement becomes a transform, so the server render and
@@ -169,10 +144,6 @@ export function OrbitConnect() {
    */
   const latchedRef = useRef(false);
 
-  /** Last frame's screen position per icon, for the motion smear. */
-  const lastPointsRef = useRef<Array<{x: number; y: number} | null>>([]);
-  const smearRef = useRef<number[]>([]);
-
   const headingRef = useRevealOnScroll<HTMLDivElement>();
 
   /**
@@ -184,12 +155,12 @@ export function OrbitConnect() {
    * keeps the *styling* of those parts in the stylesheet where the rest of the
    * section's styling lives.
    *
-   * `elapsed` is wall-clock seconds and `delta` the seconds since the previous
-   * frame; both are zero on the paths that write a single static frame, which
-   * is what makes those paths produce no flutter and no smear.
+   * `elapsed` is wall-clock seconds since the section started animating, zero
+   * on the paths that write a single static frame - which is what makes those
+   * paths produce no flutter.
    */
   const apply = useCallback(
-    (rawProgress: number, drift: number, elapsed: number, delta: number) => {
+    (rawProgress: number, drift: number, elapsed: number) => {
       const layout = layoutRef.current;
 
       if (latchedRef.current) rawProgress = 1;
@@ -215,43 +186,6 @@ export function OrbitConnect() {
         // The copy sits at z-index 2; this is what puts an icon in front of the
         // headline on the near half of the ring and behind it on the far half.
         node.style.zIndex = place.isNear ? '3' : '1';
-
-        // The smear is derived from where the icon actually went since the last
-        // frame, not from the scroll delta. That is what makes it appear during
-        // a flick, stay absent while the ring idly drifts, and fade out when
-        // the reader stops scrolling - all without any of those being cases.
-        const previous = lastPointsRef.current[index];
-        let speed = 0;
-        let heading = 0;
-        if (previous && delta > 0) {
-          const dx = place.x - previous.x;
-          const dy = place.y - previous.y;
-          speed = Math.hypot(dx, dy) / delta;
-          heading = (Math.atan2(dy, dx) * 180) / Math.PI;
-        }
-        lastPointsRef.current[index] = {x: place.x, y: place.y};
-
-        const smoothed =
-          (smearRef.current[index] ?? 0) * SMEAR_SMOOTHING +
-          speed * (1 - SMEAR_SMOOTHING);
-        smearRef.current[index] = smoothed;
-
-        const intensity = Math.min(smoothed / SMEAR_REFERENCE_SPEED, 1);
-        node.style.setProperty(
-          '--orbit-smear-opacity',
-          (intensity * SMEAR_MAX_OPACITY).toFixed(3),
-        );
-        node.style.setProperty(
-          '--orbit-smear-stretch',
-          (1 + intensity * SMEAR_MAX_STRETCH).toFixed(3),
-        );
-        // The smear lives inside the icon, which is itself rotated, so its
-        // heading has to be expressed relative to that rotation or it points
-        // somewhere the icon is not going.
-        node.style.setProperty(
-          '--orbit-smear-angle',
-          `${(heading - place.rotate).toFixed(1)}deg`,
-        );
       }
 
       const section = sectionRef.current;
@@ -324,7 +258,7 @@ export function OrbitConnect() {
         conduit.style.height = `${Math.max(mainBottom - conduitTop, 0).toFixed(0)}px`;
       }
 
-      apply(progressRef.current, driftRef.current, 0, 0);
+      apply(progressRef.current, driftRef.current, 0);
     };
 
     measure();
@@ -357,7 +291,7 @@ export function OrbitConnect() {
       // The frame loop is the writer whenever motion is allowed. Under reduced
       // motion there is no loop, and this fires exactly once, so it has to
       // write that single frame itself.
-      if (prefersReducedMotion()) apply(progress, 0, 0, 0);
+      if (prefersReducedMotion()) apply(progress, 0, 0);
     },
     ['start 26%', 'end 60%'],
   );
@@ -365,10 +299,9 @@ export function OrbitConnect() {
   /**
    * The frame loop, and the only writer while motion is allowed.
    *
-   * It owns the writing rather than sharing it with the scroll callback so that
-   * the frame-to-frame deltas the smear is built from are actually frame
-   * deltas. A second writer firing on scroll events would compute a "velocity"
-   * across an arbitrary slice of time.
+   * It owns the writing rather than sharing it with the scroll callback so
+   * that `elapsed`, which the flutter is built from, advances in real frame
+   * steps rather than jumping with whatever scroll events happen to fire.
    *
    * Gated on intersection, so a ring three screens away is not burning a frame
    * callback for something nobody can see. Skipped outright under reduced
@@ -389,12 +322,7 @@ export function OrbitConnect() {
       const delta = previous === 0 ? 0 : (time - previous) / 1000;
       previous = time;
       driftRef.current += delta * DRIFT_RADIANS_PER_SECOND;
-      apply(
-        progressRef.current,
-        driftRef.current,
-        (time - origin) / 1000,
-        delta,
-      );
+      apply(progressRef.current, driftRef.current, (time - origin) / 1000);
       frame = requestAnimationFrame(tick);
     };
 
@@ -404,7 +332,7 @@ export function OrbitConnect() {
         if (visible && !running) {
           running = true;
           // Reset the clock, or the first frame back applies every second the
-          // section spent off screen as one jump - and reports it as a smear.
+          // section spent off screen as one jump in the flutter's phase.
           previous = 0;
           frame = requestAnimationFrame(tick);
         } else if (!visible && running) {
@@ -499,11 +427,9 @@ export function OrbitConnect() {
                     opacity: place.opacity,
                     zIndex: place.isNear ? 3 : 1,
                     '--orbit-depth': place.depth,
-                    '--orbit-smear-tone': tool.tone,
                   } as CSSProperties
                 }
               >
-                <span className={styles.orbitSmear} aria-hidden="true" />
                 <span className={styles.orbitTile} aria-hidden="true">
                   {tool.logo ? (
                     // Not `next/image`: these are tiny SVGs that need no
