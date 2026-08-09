@@ -79,7 +79,7 @@ export function MarketingNav() {
           {status === 'authenticated' && (
             <Link
               as={NextLink}
-              href="/calendar"
+              href="/home"
               className={`${styles.cta} ${styles.ctaPrimary}`}
             >
               Open dashboard

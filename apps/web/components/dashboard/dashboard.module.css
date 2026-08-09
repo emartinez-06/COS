@@ -1,0 +1,123 @@
+/*
+ * The dashboard's fund meter.
+ *
+ * A CSS module for the same reason the other five in this codebase are one:
+ * Astryx forwards `className` but `defineTheme` cannot reach inner nodes, and
+ * this is a mark drawn from tokens rather than a component the library ships.
+ *
+ * The two fills are one hue at two strengths, not two categorical colours.
+ * Spent and committed are not different *kinds* of thing - they are the same
+ * money at two stages of certainty - so a sequential ramp is the honest
+ * encoding and a second hue would imply a distinction that is not there.
+ *
+ * The light step was picked with the palette validator rather than by eye:
+ * #6D9AE0 against the #2B5DAB accent separates at dE 19.8 for normal vision
+ * and 19.7 under protanopia, well clear of the 15 floor. It sits at 2.79:1
+ * against the card, just under the 3:1 bar, which is permitted here only
+ * because every segment's amount is printed as text immediately below by
+ * FundBalance - identity is never carried by colour alone on this surface.
+ */
+
+/*
+ * Two equal columns with the treasury spanning both.
+ *
+ * Deliberately not `repeat(auto-fit, minmax(320px, 1fr))`. Auto-fit packs in as
+ * many tracks as the width allows, which at a laptop size is three - so the two
+ * summary cards took the first two and the third sat empty beside them, while
+ * the full-width treasury card underneath spanned all three and made the gap
+ * look intentional. The number of columns here is a layout decision (two
+ * summaries side by side, money below them at full width), not something to
+ * derive from a minimum card width.
+ */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-4);
+  min-width: 0;
+}
+
+/*
+ * One column before the cards get too narrow to read. 900px rather than a round
+ * 768: the rail is 260px, so a 900px window leaves each card about 300px, which
+ * is where FundBalance's figures start dropping to a single column.
+ */
+@media (max-width: 900px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.gridWide {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.meterTrack {
+  --fund-spent: light-dark(#2b5dab, #b3c5ff);
+  --fund-committed: light-dark(#6d9ae0, #6e8ac4);
+
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 10px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-background-muted);
+  overflow: hidden;
+}
+
+/*
+ * Segments carry their gap as a right border in the card's own colour rather
+ * than as flex `gap`. A percentage width plus a gap sums past 100% and either
+ * overflows the track or forces the last segment to be squeezed, which would
+ * make the bar disagree with the figures beneath it. A border is taken out of
+ * the segment's own box, so the widths still add up to exactly the track.
+ */
+.meterSegment {
+  box-sizing: border-box;
+  min-width: 2px;
+  border-right: 2px solid var(--color-background-card);
+}
+
+.meterSegment:last-child {
+  border-right: none;
+}
+
+.meterSpent {
+  background-color: var(--fund-spent);
+}
+
+.meterCommitted {
+  background-color: var(--fund-committed);
+}
+
+/*
+ * The empty remainder is deliberately not painted - it is the track showing
+ * through. Giving "available" a fill of its own would make an empty fund and a
+ * fully available fund look like the same amount of something.
+ */
+.meterAvailable {
+  background-color: transparent;
+}
+
+/*
+ * Where the grant actually ran out, drawn only when the club has claimed more
+ * than it was given. The bar is scaled to the real total in that case, so
+ * without this line an over-committed fund just looks full.
+ */
+.allocatedMark {
+  position: absolute;
+  inset-block: 0;
+  width: 2px;
+  background-color: var(--color-error);
+  /* Sits above the fills, which paint in document order. */
+  z-index: 1;
+}
+
+/* A colour swatch tying a figure below the bar to its segment in it. */
+.swatch {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  flex: none;
+}

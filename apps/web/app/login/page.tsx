@@ -63,7 +63,11 @@ function LoginForm() {
   const [error, setError] = useState<FormError | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const nextPath = searchParams.get('next') ?? '/';
+  // Signing in used to land on `/`, which is the public marketing page - so
+  // the first thing someone saw after signing in was the pitch for the product
+  // they had just signed into. The dashboard is the right destination; `next`
+  // still wins, so a link into a specific surface survives the login detour.
+  const nextPath = searchParams.get('next') ?? '/home';
 
   // Someone who is already signed in has no business on the login screen.
   useEffect(() => {

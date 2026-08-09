@@ -66,7 +66,7 @@ export default function SignUpPage() {
 
   useEffect(() => {
     if (status === 'authenticated') {
-      router.replace('/');
+      router.replace('/home');
     }
   }, [status, router]);
 
@@ -114,7 +114,9 @@ export default function SignUpPage() {
     }
 
     await refresh();
-    router.replace('/');
+    // The dashboard, not `/` - a new member landing on the marketing page has
+    // been shown the pitch instead of the club they just joined.
+    router.replace('/home');
   };
 
   return (

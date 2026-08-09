@@ -33,26 +33,22 @@
 import {useState, type CSSProperties} from 'react';
 import NextLink from 'next/link';
 import {usePathname} from 'next/navigation';
-import type {Capability} from '@cos/core';
 import {SideNav, SideNavItem, SideNavSection} from '@astryxdesign/core/SideNav';
 import {IconButton} from '@astryxdesign/core/IconButton';
 import {HStack, VStack} from '@astryxdesign/core/Stack';
 import {Text} from '@astryxdesign/core/Text';
+// Only the two this file still draws itself. The destinations' icons travel
+// with them in `nav-config`.
 import {
-  BanknotesIcon,
-  CalendarDaysIcon,
   ChevronLeftIcon,
   Cog6ToothIcon,
-  FolderIcon,
 } from '@heroicons/react/24/outline';
-import {
-  BanknotesIcon as BanknotesIconSolid,
-  CalendarDaysIcon as CalendarDaysIconSolid,
-  Cog6ToothIcon as Cog6ToothIconSolid,
-  FolderIcon as FolderIconSolid,
-} from '@heroicons/react/24/solid';
+import {Cog6ToothIcon as Cog6ToothIconSolid} from '@heroicons/react/24/solid';
 
+import {visibleNav} from '../../lib/nav-config';
+import {usePresence} from '../../lib/presence-store';
 import {useSession} from '../../lib/session';
+import {MemberAvatar} from './member-avatar';
 import styles from './settings-button.module.css';
 import collapseStyles from './collapse-button.module.css';
 import sideNavStyles from './side-nav.module.css';
@@ -69,69 +65,21 @@ const sideNavSurface: CSSProperties = {
 };
 
 /**
- * Navigation is data rather than hand-written JSX so that adding a destination
- * is one entry, and so the active-route rule below is applied identically to
- * every item instead of being repeated per link.
+ * Navigation now lives in `lib/nav-config`, because search indexes the same
+ * list. Keeping it here meant search either duplicated it or imported from a
+ * component - and a duplicated index goes stale silently, leaving a real
+ * surface unfindable until somebody notices.
  *
- * A section may declare a `capability`. When it does, the whole group is
- * hidden from anyone who lacks it - members do not see an Officers heading
- * with nothing under it, which would advertise the existence of a section they
- * cannot open. Adding an officer-only surface is one entry in this group.
- *
- * An individual item may declare one too, for the case a group does not cover:
- * a section every member can see that contains one destination not everyone
- * can. Documents is deliberately written this way even though `document:view`
- * is held by every role, so the gate that governs the surface is stated next to
- * the link to it rather than left implicit.
+ * Only the items marked `isInSideNav` render here. Settings' sub-sections are
+ * genuine destinations and belong in search, but the rail lists what the club
+ * does; the way to settings is the gear in the footer.
  *
  * Hiding navigation is not a security control. It decides what to render; the
  * API refuses the request regardless of what the browser drew.
  */
-const SECTIONS: readonly {
-  title: string;
-  capability?: Capability;
-  items: readonly {
-    href: string;
-    label: string;
-    capability?: Capability;
-    icon: typeof CalendarDaysIcon;
-    selectedIcon: typeof CalendarDaysIconSolid;
-  }[];
-}[] = [
-  {
-    title: 'Club',
-    items: [
-      {
-        href: '/calendar',
-        label: 'Calendar',
-        icon: CalendarDaysIcon,
-        selectedIcon: CalendarDaysIconSolid,
-      },
-      {
-        href: '/documents',
-        label: 'Documents',
-        // Every role holds this, so unlike the treasury below, the hub is in
-        // everyone's sidebar. What officers get is the drafts and the editor,
-        // not the section itself.
-        capability: 'document:view',
-        icon: FolderIcon,
-        selectedIcon: FolderIconSolid,
-      },
-    ],
-  },
-  {
-    title: 'Treasury',
-    capability: 'expense:view',
-    items: [
-      {
-        href: '/expenses',
-        label: 'Expenses',
-        icon: BanknotesIcon,
-        selectedIcon: BanknotesIconSolid,
-      },
-    ],
-  },
-];
+
+/** Lets the name truncate instead of pushing the gear off the rail. */
+const identityText: CSSProperties = {minWidth: 0, flex: 1};
 
 const footerBlock: CSSProperties = {
   paddingInline: 'var(--spacing-3)',
@@ -212,6 +160,10 @@ function CollapseToggle({
 function SideNavIdentity({isCollapsed}: {isCollapsed: boolean}) {
   const {user, title} = useSession();
   const pathname = usePathname();
+  // Null outside a provider, which is why this reads defensively rather than
+  // destructuring - see `usePresence`.
+  const presence = usePresence();
+  const ownStatus = presence?.ownStatus ?? 'offline';
 
   if (!user) {
     return null;
@@ -239,26 +191,54 @@ function SideNavIdentity({isCollapsed}: {isCollapsed: boolean}) {
 
   if (isCollapsed) {
     return (
-      <HStack hAlign="center" style={collapsedToggleRow}>
+      <VStack gap={2} hAlign="center" style={collapsedToggleRow}>
+        {/*
+          The avatar survives the collapse where the name does not. At 48px
+          there is room for one 24px mark, and the status dot is the part that
+          is still telling you something you did not already know - your own
+          name is not.
+        */}
+        <MemberAvatar
+          name={user.name}
+          image={user.image}
+          status={ownStatus}
+          size="sm"
+        />
         {settingsButton}
-      </HStack>
+      </VStack>
     );
   }
 
   return (
-    <VStack gap={0} style={footerBlock} hAlign="stretch">
-      {title ? (
-        <Text type="supporting" color="secondary" display="block">
-          {title}
-        </Text>
-      ) : null}
-      <HStack gap={2} vAlign="center" hAlign="between">
-        <Text type="body" weight="semibold" display="block">
-          {user.name}
-        </Text>
-        {settingsButton}
-      </HStack>
-    </VStack>
+    <HStack gap={3} vAlign="center" style={footerBlock}>
+      {/*
+        The avatar carries the person's own status dot. It sits beside the
+        identity text rather than replacing it: a dot alone says "someone is
+        active" without saying who, and this block's job is to answer "who am
+        I signed in as".
+      */}
+      <MemberAvatar
+        name={user.name}
+        image={user.image}
+        status={ownStatus}
+        size="sm"
+        // The name is right beside it; a tooltip repeating it is noise.
+        hasTooltip={false}
+      />
+      <VStack gap={0} hAlign="stretch" style={identityText}>
+        {title ? (
+          <Text type="supporting" color="secondary" display="block">
+            {title}
+          </Text>
+        ) : null}
+        <HStack gap={2} vAlign="center" hAlign="between">
+          <Text type="body" weight="semibold" display="block">
+            {user.name}
+          </Text>
+          {settingsButton}
+        </HStack>
+      </VStack>
+    </HStack>
   );
 }
 
@@ -283,13 +263,11 @@ export function AppSideNav() {
   // a hook inside a loop is fragile the moment the list stops being static, and
   // the server already flattened the role into exactly this array.
   const capabilities = activeClub?.capabilities ?? [];
-  const held = (capability: Capability | undefined) =>
-    capability === undefined || capabilities.includes(capability);
 
-  const sections = SECTIONS.filter((section) => held(section.capability))
+  const sections = visibleNav(capabilities)
     .map((section) => ({
       ...section,
-      items: section.items.filter((item) => held(item.capability)),
+      items: section.items.filter((item) => item.isInSideNav),
     }))
     // A section whose every item was filtered out is a heading with nothing
     // under it, which is the thing the section-level gate exists to avoid.

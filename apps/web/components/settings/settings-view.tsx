@@ -16,7 +16,8 @@
  * than showing the value plainly.
  */
 
-import {useState, type CSSProperties} from 'react';
+import {useEffect, useState, type CSSProperties} from 'react';
+import {useSearchParams} from 'next/navigation';
 import {Button} from '@astryxdesign/core/Button';
 import {Card} from '@astryxdesign/core/Card';
 import {Selector} from '@astryxdesign/core/Selector';
@@ -32,12 +33,16 @@ import {HStack, VStack} from '@astryxdesign/core/Stack';
 import {Text, Heading} from '@astryxdesign/core/Text';
 import {
   BuildingLibraryIcon,
+  CommandLineIcon,
+  SignalIcon,
   UserGroupIcon,
   UserIcon,
 } from '@heroicons/react/24/outline';
 
 import {useSession} from '../../lib/session';
 import {MembersSection} from './members-section';
+import {PresenceSection} from './presence-section';
+import {ShortcutsSection} from './shortcuts-section';
 
 const NAV_WIDTH = 240;
 
@@ -50,12 +55,19 @@ const panelInner: CSSProperties = {padding: 'var(--spacing-3)'};
 const page: CSSProperties = {padding: 'var(--spacing-5)', minWidth: 0};
 const rowPadding: CSSProperties = {paddingBlock: 'var(--spacing-3)'};
 
-type SectionId = 'profile' | 'club' | 'members';
+type SectionId =
+  | 'profile'
+  | 'availability'
+  | 'club'
+  | 'members'
+  | 'shortcuts';
 
 const SECTIONS: {id: SectionId; label: string; icon: typeof UserIcon}[] = [
   {id: 'profile', label: 'Your profile', icon: UserIcon},
+  {id: 'availability', label: 'Availability', icon: SignalIcon},
   {id: 'club', label: 'Club', icon: BuildingLibraryIcon},
   {id: 'members', label: 'Members', icon: UserGroupIcon},
+  {id: 'shortcuts', label: 'Keyboard shortcuts', icon: CommandLineIcon},
 ];
 
 /** A label and its value. The read-only half of settings. */
@@ -176,8 +188,32 @@ function ClubSection() {
   );
 }
 
+/** Only ids this screen actually renders; anything else falls back. */
+function parseSection(value: string | null): SectionId | null {
+  return SECTIONS.some((entry) => entry.id === value)
+    ? (value as SectionId)
+    : null;
+}
+
 export function SettingsView() {
-  const [section, setSection] = useState<SectionId>('profile');
+  /**
+   * `?section=` makes each pane a real destination, which is what lets search
+   * offer "Members" and land on it. The selection stays local state rather
+   * than being driven from the URL on every click: these are panes of one
+   * screen, and pushing a history entry per pane would make Back walk through
+   * tabs instead of leaving settings.
+   *
+   * So the parameter is an opening position, read once per navigation.
+   */
+  const searchParams = useSearchParams();
+  const requested = parseSection(searchParams.get('section'));
+  const [section, setSection] = useState<SectionId>(requested ?? 'profile');
+
+  useEffect(() => {
+    if (requested) {
+      setSection(requested);
+    }
+  }, [requested]);
 
   return (
     <Layout
@@ -208,8 +244,10 @@ export function SettingsView() {
         <LayoutContent padding={0}>
           <VStack gap={0} style={page} hAlign="stretch">
             {section === 'profile' ? <ProfileSection /> : null}
+            {section === 'availability' ? <PresenceSection /> : null}
             {section === 'club' ? <ClubSection /> : null}
             {section === 'members' ? <MembersSection /> : null}
+            {section === 'shortcuts' ? <ShortcutsSection /> : null}
           </VStack>
         </LayoutContent>
       }

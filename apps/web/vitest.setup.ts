@@ -45,6 +45,54 @@ if (typeof Element !== 'undefined' && !Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => {};
 }
 
+/**
+ * jsdom declares `window.localStorage` but it evaluates to `undefined` here.
+ * The property descriptor exists, so the usual `!window.localStorage` guard
+ * reads as "present" while any use of it throws - which is why this checks the
+ * *value* rather than the key.
+ *
+ * The cause is the environment, not our code: Node 22 ships its own
+ * experimental `localStorage` that is inert unless started with
+ * `--localstorage-file`, and it shadows jsdom's implementation. The visible
+ * symptom is a `ExperimentalWarning: localStorage is not available` line and a
+ * TypeError on first use.
+ *
+ * An in-memory Storage is the right stub. It is what the browser gives us in
+ * production, the shortcut store's whole contract is "write it, read it back",
+ * and a stub that only pretended to persist would let a broken round trip
+ * pass. Backed by a Map so each run starts empty and `clear()` is real.
+ */
+if (typeof window !== 'undefined' && !window.localStorage) {
+  const memoryStorage = (): Storage => {
+    const entries = new Map<string, string>();
+    return {
+      get length() {
+        return entries.size;
+      },
+      key: (index: number) => [...entries.keys()][index] ?? null,
+      getItem: (key: string) => entries.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        entries.set(key, String(value));
+      },
+      removeItem: (key: string) => {
+        entries.delete(key);
+      },
+      clear: () => {
+        entries.clear();
+      },
+    } as Storage;
+  };
+
+  Object.defineProperty(window, 'localStorage', {
+    value: memoryStorage(),
+    configurable: true,
+  });
+  Object.defineProperty(window, 'sessionStorage', {
+    value: memoryStorage(),
+    configurable: true,
+  });
+}
+
 if (typeof window !== 'undefined' && !window.matchMedia) {
   window.matchMedia = (query: string): MediaQueryList =>
     ({

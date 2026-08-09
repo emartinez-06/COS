@@ -23,6 +23,8 @@ import {NavIcon} from '@astryxdesign/core/NavIcon';
 import {CalendarDaysIcon} from '@heroicons/react/24/solid';
 import {useSession} from '../../lib/session';
 import {AppSideNav} from './app-side-nav';
+import {SearchTrigger} from './search-trigger';
+import {SiteSearchPalette} from './site-search-palette';
 
 /**
  * The Notion-style dot grid. It sits on the shell background, behind the
@@ -35,8 +37,16 @@ const dottedWorkspace: CSSProperties = {
   // body instead and collapses the shell to content height, which leaves a
   // band of unpainted background below the fold on a tall window.
   minHeight: 0,
-  backgroundImage:
-    'radial-gradient(var(--color-border-emphasized) 1px, transparent 1px)',
+  // `--color-border`, not `--color-border-emphasized`. The grid is decorative
+  // texture, and Astryx 0.3.0 gave the emphasized token a contrast contract -
+  // it is now generated so it clears 3:1 against the surface for non-text UI.
+  // That is the right guarantee for a real border and the wrong one here: the
+  // upgrade darkened it from #A8ABB9 to #8D909E and the dots started reading
+  // as content rather than as the surface they sit under. A texture wants to
+  // be below that threshold deliberately. This token is also alpha-based
+  // (10% ink), so it composites over whatever ground it lands on instead of
+  // assuming one.
+  backgroundImage: 'radial-gradient(var(--color-border) 1px, transparent 1px)',
   backgroundSize: 'var(--spacing-6) var(--spacing-6)',
   backgroundPosition: '-1px -1px',
 };
@@ -75,11 +85,25 @@ export function DashboardShell({children}: {children: React.ReactNode}) {
               }
               heading="COS"
               subheading={activeClub?.name}
-              headingHref="/"
+              // The dashboard, not `/`. Inside the shell the reader is signed
+              // in by definition, and a product mark that throws them out to
+              // the marketing page is the one link here that leaves the app.
+              headingHref="/home"
             />
           }
+          // TopNav had no end content deliberately - identity moved to the
+          // sidebar's footer. Search is the one thing that earns a place back:
+          // it is global rather than about the person, it belongs at the top
+          // of every surface, and putting it in the rail would hide it
+          // whenever the rail is collapsed.
+          endContent={<SearchTrigger />}
         />
       }>
+      {/*
+        Mounted once, here, rather than per page: the shortcut is global, and a
+        palette per surface would bind the same key several times over.
+      */}
+      <SiteSearchPalette />
       {children}
     </AppShell>
   );

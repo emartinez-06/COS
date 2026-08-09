@@ -13,10 +13,22 @@
  * Data providers deliberately do not live here. The event store is scoped to
  * the calendar, and mounting it around the whole dashboard would start a
  * polling subscription for anyone sitting on a treasury page.
+ *
+ * `PresenceProvider` is the one exception, and it is an exception rather than
+ * a loosening of that rule. The rule exists so a subscription belongs to the
+ * surface that needs it; presence is drawn by the *shell* - the sidebar's
+ * avatar, on every screen - so its surface is all of them. Scoped to a route
+ * it would report someone as online only while they sat on that one page, and
+ * their own dot would change as they navigated. Its polling is the feature
+ * rather than a cost to be scoped away, and it stops with the tab.
+ *
+ * It sits inside AuthGuard because there is nobody to report a heartbeat for
+ * until the session resolves.
  */
 
 import {AuthGuard} from '../../components/shell/auth-guard';
 import {DashboardShell} from '../../components/shell/dashboard-shell';
+import {PresenceProvider} from '../../lib/presence-store';
 
 export default function DashboardLayout({
   children,
@@ -25,7 +37,9 @@ export default function DashboardLayout({
 }) {
   return (
     <AuthGuard>
-      <DashboardShell>{children}</DashboardShell>
+      <PresenceProvider>
+        <DashboardShell>{children}</DashboardShell>
+      </PresenceProvider>
     </AuthGuard>
   );
 }
