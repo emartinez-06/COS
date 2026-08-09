@@ -101,7 +101,9 @@ jobs:
       DATABASE_URL: postgresql://cos:cos_dev_password@localhost:5432/cos
       # Test-only, and it is a CI value rather than a secret: this database is
       # created and destroyed inside the job and is reachable by nothing.
-      BETTER_AUTH_SECRET: ci-only-not-a-real-secret
+      # Must clear 32 characters - `env.ts` enforces that, and the first
+      # attempt here was 25 and failed the migrate step.
+      BETTER_AUTH_SECRET: ci-only-not-a-real-secret-padded-to-length
       BETTER_AUTH_URL: http://localhost:3200
       WEB_ORIGINS: http://localhost:3100
       NODE_ENV: test
