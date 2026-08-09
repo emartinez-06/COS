@@ -13,3 +13,4 @@ export * from './document.js';
 export * from './treasury.js';
 export * from './ports.js';
 export * from './announcement.js';
+export * from './presence.js';
