@@ -193,8 +193,24 @@ async function seedDocuments(authorId: string | undefined): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  if (env.NODE_ENV === 'production') {
-    throw new Error('Refusing to seed a production database.');
+  /**
+   * An allowlist, not a denylist, and the difference is the whole point.
+   *
+   * `NODE_ENV` defaults to `development`, so a denylist on `=== 'production'`
+   * means the one operator who deploys without setting it seeds a public
+   * database with credentials that are published in this repository - and the
+   * officer account holds every capability. The failure mode of forgetting an
+   * environment variable should be a refusal, not a wide-open club.
+   *
+   * `test` is included because the API suite is not hermetic by design and
+   * runs against a real, seeded database.
+   */
+  if (env.NODE_ENV !== 'development' && env.NODE_ENV !== 'test') {
+    throw new Error(
+      `Refusing to seed: NODE_ENV is "${env.NODE_ENV}". ` +
+        'This seed creates accounts whose passwords are public in the ' +
+        'repository, so it only runs in development or test.',
+    );
   }
 
   console.log('Seeding development data...');

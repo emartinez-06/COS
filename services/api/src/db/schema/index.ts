@@ -3,3 +3,4 @@ export * from './club.js';
 export * from './event.js';
 export * from './document.js';
 export * from './treasury.js';
+export * from './presence.js';
