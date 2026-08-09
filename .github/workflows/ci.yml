@@ -1,0 +1,147 @@
+# Typecheck and test on every push and pull request.
+#
+# This is the first automated check this repository has ever had. Until now
+# there were 465 tests and none of them ran unless somebody remembered, across
+# four merged pull requests with zero checks and eight pushes straight to
+# `main` - which is exactly the condition under which one forgotten local run
+# breaks the default branch.
+#
+# It is deliberately split in two. `packages/core` and `apps/web` are hermetic
+# and run anywhere; `services/api` is not, on purpose - its subject under test
+# is a role looked up from Postgres and bytes round-tripped through
+# S3-compatible storage, and mocking those would test the mocks. So that job
+# brings up real service containers, matching the versions in
+# docker-compose.yml rather than "whatever is latest", because a test suite
+# that passes against a different Postgres than production runs has told you
+# less than it appears to.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A second push to the same branch makes the first run's answer irrelevant.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # `packages/core` is consumed as built ESM by services/api, so almost
+  # everything here depends on it being built first.
+  CORE_BUILD: pnpm --filter @cos/core build
+
+jobs:
+  hermetic:
+    name: core + web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.13.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build core
+        run: ${{ env.CORE_BUILD }}
+
+      - name: Typecheck
+        run: pnpm --filter @cos/core --filter @cos/web typecheck
+
+      - name: Test
+        run: pnpm --filter @cos/core --filter @cos/web test
+
+      # The dev server holds `.next`, so this never runs locally - which makes
+      # CI the only place a production build is ever exercised. It catches the
+      # class of thing typecheck and vitest cannot: a bad import boundary, a
+      # server component using a client-only hook, a route that fails to
+      # prerender.
+      - name: Production build
+        run: pnpm --filter @cos/web build
+
+  api:
+    name: api
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        # Pinned to the same image docker-compose.yml runs.
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: cos
+          POSTGRES_PASSWORD: cos_dev_password
+          POSTGRES_DB: cos
+        ports:
+          - 5432:5432
+        # Without this the suite races the database's first boot and fails on
+        # roughly the first run of the morning.
+        options: >-
+          --health-cmd "pg_isready -U cos -d cos"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      minio:
+        image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+        env:
+          MINIO_ROOT_USER: cos_dev_access_key
+          MINIO_ROOT_PASSWORD: cos_dev_secret_key
+        ports:
+          - 9000:9000
+        options: >-
+          --health-cmd "mc ready local || curl -f http://localhost:9000/minio/health/live"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      DATABASE_URL: postgresql://cos:cos_dev_password@localhost:5432/cos
+      # Test-only, and it is a CI value rather than a secret: this database is
+      # created and destroyed inside the job and is reachable by nothing.
+      BETTER_AUTH_SECRET: ci-only-not-a-real-secret
+      BETTER_AUTH_URL: http://localhost:3200
+      WEB_ORIGINS: http://localhost:3100
+      NODE_ENV: test
+      STORAGE_ENDPOINT: http://localhost:9000
+      STORAGE_REGION: us-east-1
+      STORAGE_BUCKET: cos-documents
+      STORAGE_ACCESS_KEY_ID: cos_dev_access_key
+      STORAGE_SECRET_ACCESS_KEY: cos_dev_secret_key
+      STORAGE_FORCE_PATH_STYLE: 'true'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.13.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build core
+        run: ${{ env.CORE_BUILD }}
+
+      # Runs the same committed SQL migrations a self-hoster would, rather than
+      # pushing the schema. A migration that does not apply cleanly to an empty
+      # database is a defect this step is meant to catch.
+      - name: Migrate
+        run: pnpm --filter @cos/api db:migrate
+
+      - name: Typecheck
+        run: pnpm --filter @cos/api typecheck
+
+      - name: Test
+        run: pnpm --filter @cos/api test
