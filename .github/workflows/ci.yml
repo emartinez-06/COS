@@ -89,18 +89,13 @@ jobs:
           --health-timeout 5s
           --health-retries 10
 
-      minio:
-        image: minio/minio:RELEASE.2025-04-22T22-12-26Z
-        env:
-          MINIO_ROOT_USER: cos_dev_access_key
-          MINIO_ROOT_PASSWORD: cos_dev_secret_key
-        ports:
-          - 9000:9000
-        options: >-
-          --health-cmd "mc ready local || curl -f http://localhost:9000/minio/health/live"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 20
+      # MinIO is deliberately NOT here - it is started as a step below.
+      #
+      # A service container cannot be given a command. The `minio` image's
+      # entrypoint needs `server /data` (which is what docker-compose.yml
+      # passes); with no arguments the binary prints its usage text and exits,
+      # so the container goes unhealthy and the job fails before checkout.
+      # That is exactly what happened on this workflow's first run.
 
     env:
       DATABASE_URL: postgresql://cos:cos_dev_password@localhost:5432/cos
@@ -128,6 +123,33 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+
+      # Same pinned image and the same `server /data` command docker-compose.yml
+      # uses, started by hand because a service container cannot carry a command.
+      # The bucket is created lazily on first use, so nothing needs seeding here.
+      - name: Start MinIO
+        run: |
+          docker run -d --name minio \
+            -p 9000:9000 \
+            -e MINIO_ROOT_USER=cos_dev_access_key \
+            -e MINIO_ROOT_PASSWORD=cos_dev_secret_key \
+            minio/minio:RELEASE.2025-04-22T22-12-26Z \
+            server /data
+
+      # Polled rather than assumed. Without this the suite races MinIO's first
+      # boot and the upload tests fail on roughly the first run of the morning.
+      - name: Wait for MinIO
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:9000/minio/health/live > /dev/null; then
+              echo "MinIO is live"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "MinIO did not become live in 60s"
+          docker logs minio
+          exit 1
 
       - run: pnpm install --frozen-lockfile
 
