@@ -50,6 +50,13 @@
       "when": 1786236605476,
       "tag": "0006_supreme_king_cobra",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787100280380,
+      "tag": "0007_fluffy_proudstar",
+      "breakpoints": true
     }
   ]
 }

@@ -27,6 +27,7 @@ export const STATEMENT = {
   expense: ['create', 'edit', 'delete', 'view'],
   member: ['invite', 'remove', 'view'],
   document: ['create', 'edit', 'delete', 'view'],
+  canvas: ['create', 'edit', 'delete', 'view'],
 } as const satisfies Record<string, readonly string[]>;
 
 /** A resource the product gates access to. */
@@ -97,6 +98,13 @@ const CAPABILITIES: Record<Role, readonly Capability[]> = {
     'document:edit',
     'document:delete',
     'document:view',
+    // The canvas is officer-only, including read - same shape as the
+    // treasury. It's a planning space for the people running the club, not
+    // a club-wide whiteboard.
+    'canvas:create',
+    'canvas:edit',
+    'canvas:delete',
+    'canvas:view',
   ],
   // A member sees the roster. Knowing who else is in your own club is not
   // privileged information, and it is what makes the club feel like a club.

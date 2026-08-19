@@ -16,12 +16,13 @@
  * rendered.
  */
 
-import type {Capability} from '@cos/core';
+import type {Capability, CanvasEmbedEntityType} from '@cos/core';
 import {
   BanknotesIcon,
   CalendarDaysIcon,
   Cog6ToothIcon,
   FolderIcon,
+  RectangleGroupIcon,
   Squares2X2Icon,
 } from '@heroicons/react/24/outline';
 import {
@@ -29,6 +30,7 @@ import {
   CalendarDaysIcon as CalendarDaysIconSolid,
   Cog6ToothIcon as Cog6ToothIconSolid,
   FolderIcon as FolderIconSolid,
+  RectangleGroupIcon as RectangleGroupIconSolid,
   Squares2X2Icon as Squares2X2IconSolid,
 } from '@heroicons/react/24/solid';
 
@@ -46,6 +48,13 @@ export interface NavItem {
    * screen that exists.
    */
   isInSideNav?: boolean;
+  /**
+   * Present on the destinations the canvas can embed a live summary of.
+   * `canvas-feature-palette.tsx` derives its drag sources from this field
+   * rather than keeping a second, hand-maintained list of embeddable
+   * categories that could drift from the real nav.
+   */
+  canvasEmbedType?: CanvasEmbedEntityType;
 }
 
 export interface NavSection {
@@ -88,6 +97,7 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         selectedIcon: CalendarDaysIconSolid,
         keywords: ['events', 'schedule', 'meeting', 'agenda', 'month'],
         isInSideNav: true,
+        canvasEmbedType: 'calendar',
       },
       {
         href: '/documents',
@@ -100,6 +110,7 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         selectedIcon: FolderIconSolid,
         keywords: ['files', 'bylaws', 'constitution', 'notes', 'records'],
         isInSideNav: true,
+        canvasEmbedType: 'documents',
       },
     ],
   },
@@ -113,6 +124,24 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         icon: BanknotesIcon,
         selectedIcon: BanknotesIconSolid,
         keywords: ['money', 'budget', 'fund', 'spending', 'reimburse'],
+        isInSideNav: true,
+        canvasEmbedType: 'expenses',
+      },
+    ],
+  },
+  {
+    title: 'Planning',
+    // Officer-only including read, same shape as Treasury: the canvas is a
+    // planning space for the people running the club, not a club-wide board.
+    capability: 'canvas:view',
+    items: [
+      {
+        href: '/canvas',
+        label: 'Canvas',
+        capability: 'canvas:view',
+        icon: RectangleGroupIcon,
+        selectedIcon: RectangleGroupIconSolid,
+        keywords: ['whiteboard', 'brainstorm', 'notes', 'board', 'plan'],
         isInSideNav: true,
       },
     ],

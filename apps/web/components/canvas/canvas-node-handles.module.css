@@ -1,0 +1,31 @@
+/*
+ * Astryx forwards `className`, but a hover-revealed connection dot with a
+ * padded (larger-than-visible) hit target needs `:hover` and `::before`,
+ * neither reachable from inline styles or `defineTheme`. Same reason this
+ * repo already has six CSS modules for one-off cases like this.
+ *
+ * `.cosCanvasNode` is a plain, unscoped marker class (not a CSS module
+ * class) applied to every node's root wrapper, so this file's `:hover`
+ * selector can reach across node components without them sharing a module.
+ */
+
+.handle {
+  z-index: 20;
+  height: 10px;
+  width: 10px;
+  border: var(--border-width) solid var(--color-accent);
+  background-color: var(--color-background-surface);
+  opacity: 0;
+  transition: opacity var(--duration-fast) ease;
+}
+
+.handle::before {
+  content: '';
+  position: absolute;
+  inset: -10px;
+}
+
+:global(.cos-canvas-node):hover .handle,
+.handle:hover {
+  opacity: 1;
+}

@@ -19,6 +19,16 @@
  * caller of their own writes does not satisfy this interface.
  */
 
+import type {
+  CanvasBoard,
+  CanvasEdge,
+  CanvasEdgeDraft,
+  CanvasNode,
+  CanvasNodeContentPatch,
+  CanvasNodeDraft,
+  CanvasNodeGeometryPatch,
+  CanvasViewportPatch,
+} from './canvas.js';
 import type {ClubEvent, EventDraft} from './club-event.js';
 import type {
   ClubDocument,
@@ -282,4 +292,73 @@ export interface TreasuryRepository {
    * rule.
    */
   removeRequest(clubId: string, requestId: string): Promise<void>;
+}
+
+/**
+ * The club canvas: one shared, officer-only whiteboard per club.
+ *
+ * There is deliberately **no `subscribe`**, matching the treasury rather than
+ * the calendar. Nothing writes to the canvas except an officer sitting in
+ * this app - there is no server-side writer with no browser, the way the
+ * GroupMe bot is for events - so a single-writer-at-a-time board is an
+ * accepted v1 tradeoff rather than an oversight.
+ */
+export interface CanvasRepository {
+  /** Gets the club's one board, creating it on first visit. */
+  getOrCreateBoard(clubId: string): Promise<CanvasBoard>;
+
+  /** Every node on the board. */
+  listNodes(clubId: string, boardId: string): Promise<CanvasNode[]>;
+
+  /**
+   * Creates a node. `file` is required for an `image` draft and must be
+   * absent otherwise - the bytes never travel as JSON, the same rule
+   * `DocumentRepository.create` follows for uploaded documents.
+   */
+  createNode(
+    clubId: string,
+    boardId: string,
+    draft: CanvasNodeDraft,
+    file?: FileBytes & {name: string},
+  ): Promise<CanvasNode>;
+
+  /** Applies a position/size/stacking/accent change. Fired by drag, resize, and recolour. */
+  updateNodeGeometry(
+    clubId: string,
+    nodeId: string,
+    patch: CanvasNodeGeometryPatch,
+  ): Promise<CanvasNode>;
+
+  /** Applies a content edit. Only `sticky_note` and `link` nodes accept one. */
+  updateNodeContent(
+    clubId: string,
+    nodeId: string,
+    patch: CanvasNodeContentPatch,
+  ): Promise<CanvasNode>;
+
+  /** Removes a node and every edge attached to it. */
+  deleteNode(clubId: string, nodeId: string): Promise<void>;
+
+  /** The bytes of an `image` node. */
+  downloadImage(clubId: string, nodeId: string): Promise<FileBytes>;
+
+  /** Every connection on the board. */
+  listEdges(clubId: string, boardId: string): Promise<CanvasEdge[]>;
+
+  /** Connects two nodes. Connecting the same pair twice is a no-op, not a duplicate. */
+  createEdge(
+    clubId: string,
+    boardId: string,
+    draft: CanvasEdgeDraft,
+  ): Promise<CanvasEdge>;
+
+  /** Removes a connection. */
+  deleteEdge(clubId: string, edgeId: string): Promise<void>;
+
+  /** Persists the last-known pan position and zoom. */
+  updateViewport(
+    clubId: string,
+    boardId: string,
+    patch: CanvasViewportPatch,
+  ): Promise<CanvasBoard>;
 }

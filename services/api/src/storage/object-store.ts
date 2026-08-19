@@ -110,6 +110,22 @@ export function documentStorageKey(
   return `clubs/${clubId}/documents/${documentId}/v${version}`;
 }
 
+/**
+ * The storage key for a canvas image node's bytes.
+ *
+ * Namespaced by club and board for the same legibility reason as
+ * `documentStorageKey`. Unlike a document, an image node's bytes are fixed
+ * at upload - there is no version to key by, since the node has no "replace
+ * this image" operation.
+ */
+export function canvasImageStorageKey(
+  clubId: string,
+  boardId: string,
+  nodeId: string,
+): string {
+  return `clubs/${clubId}/canvas/${boardId}/${nodeId}`;
+}
+
 export async function putObject(
   key: string,
   bytes: Uint8Array,

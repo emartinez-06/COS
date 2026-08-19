@@ -4,3 +4,6 @@ export * from './event.js';
 export * from './document.js';
 export * from './treasury.js';
 export * from './presence.js';
+export * from './canvas-boards.js';
+export * from './canvas-nodes.js';
+export * from './canvas-edges.js';

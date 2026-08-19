@@ -22,6 +22,10 @@ describe('STATEMENT', () => {
     expect([...ALL_CAPABILITIES].sort()).toEqual(
       [
         'announcement:draft',
+        'canvas:create',
+        'canvas:delete',
+        'canvas:edit',
+        'canvas:view',
         'document:create',
         'document:delete',
         'document:edit',
