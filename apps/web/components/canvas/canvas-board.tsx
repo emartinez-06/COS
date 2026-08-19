@@ -264,7 +264,7 @@ function CanvasSurface({
     useReactFlow();
   const toast = useToast();
   const {createNode, deleteEdge, updateNodeGeometry} = useCanvas();
-  const {select: reportSelection} = useCanvasPresence();
+  const {select: reportSelection, subscribeSync} = useCanvasPresence();
 
   /**
    * Reports the officer's active node to everyone else on the board.
@@ -280,6 +280,58 @@ function CanvasSurface({
     },
     [reportSelection],
   );
+
+  /**
+   * Applies someone else's write live: a move, a resize, a content edit, a
+   * create, or a delete of a node or edge. Every upsert is applied by id -
+   * this is also what makes it safe for the writer's own connection to see
+   * its own change echoed back, since re-applying identical data is a no-op.
+   *
+   * `selected` is preserved across a node/edge upsert on purpose -
+   * `toFlowNode`/`toFlowEdge` never set it, so a naive replace would clear
+   * whatever the officer had selected locally out from under them the
+   * moment anyone else touched that same node.
+   *
+   * No guard against a remote update landing mid-drag on a node this
+   * browser is actively moving - accepted, matching the last-write-wins
+   * model every canvas write already had. Two officers dragging the exact
+   * same node at the same instant is rare enough on a small club's board
+   * that it is not worth building real conflict resolution for.
+   */
+  useEffect(() => {
+    return subscribeSync((message) => {
+      switch (message.type) {
+        case 'node-upserted': {
+          const flowNode = toFlowNode(message.node);
+          setNodes((current) => {
+            const index = current.findIndex((node) => node.id === flowNode.id);
+            if (index === -1) return [...current, flowNode];
+            const next = [...current];
+            next[index] = {...flowNode, selected: current[index]!.selected};
+            return next;
+          });
+          break;
+        }
+        case 'node-deleted':
+          setNodes((current) => current.filter((node) => node.id !== message.nodeId));
+          break;
+        case 'edge-upserted': {
+          const flowEdge = toFlowEdge(message.edge);
+          setEdges((current) => {
+            const index = current.findIndex((edge) => edge.id === flowEdge.id);
+            if (index === -1) return [...current, flowEdge];
+            const next = [...current];
+            next[index] = {...flowEdge, selected: current[index]!.selected};
+            return next;
+          });
+          break;
+        }
+        case 'edge-deleted':
+          setEdges((current) => current.filter((edge) => edge.id !== message.edgeId));
+          break;
+      }
+    });
+  }, [subscribeSync, setNodes, setEdges]);
 
   /**
    * Connecting FROM a coloured node paints what it connects TO - so
