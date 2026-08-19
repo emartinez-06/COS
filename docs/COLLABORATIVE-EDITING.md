@@ -118,8 +118,9 @@ A WebSocket per open document, carrying two channels:
 - **Awareness** - cursor position, selection, display name, colour - which is broadcast and never persisted.
   Awareness is what makes collaboration feel collaborative, and it is also the part that must not touch the database.
 
-Hono supports WebSockets through `@hono/node-ws`, so this lives in `services/api` rather than becoming a fourth service.
+Hono supports WebSockets natively through `@hono/node-server`'s `upgradeWebSocket` (not the older `@hono/node-ws`, which is deprecated), so this lives in `services/api` rather than becoming a fourth service.
 That matters for the self-hosting story: `docker compose up` should not grow another container for this.
+The canvas's live presence feature (shipped 2026-08-19) is the first real use of this mechanism in the repo, for exactly the "awareness, broadcast and never persisted" half of this design - a real reference to work from once this feature is built.
 
 **Authorization is checked at connection time and is the same check as everywhere else.**
 `document:edit` for a writable connection, `document:view` for a read-only one, resolved from `club_members` exactly as `requireCapability` does today.

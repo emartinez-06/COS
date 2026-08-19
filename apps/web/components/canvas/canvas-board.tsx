@@ -30,6 +30,7 @@ import type {CanvasAccentColor} from '@cos/core';
 import {Text} from '@astryxdesign/core/Text';
 import {useToast} from '@astryxdesign/core/Toast';
 
+import {useCanvasPresence} from '../../lib/canvas-presence-store';
 import {useCanvas} from '../../lib/canvas-store';
 import {CanvasAddNodeToolbar} from './canvas-add-node-toolbar';
 import {CanvasEntityEmbedNode} from './canvas-entity-embed-node';
@@ -44,17 +45,20 @@ import {
   toFlowEdge,
   toFlowNode,
 } from './canvas-node-utils';
+import {withCanvasPresence} from './canvas-node-presence';
 import {CanvasStickyNoteNode} from './canvas-sticky-note-node';
 
 /** Shared by the <ReactFlow> props and the over-a-node wheel handler, so the two agree. */
 const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 2;
 
+// Wrapped once here, not edited into each of the four node components - see
+// canvas-node-presence.tsx for why.
 const nodeTypes: NodeTypes = {
-  sticky_note: CanvasStickyNoteNode,
-  link: CanvasLinkNode,
-  image: CanvasImageNode,
-  entity_embed: CanvasEntityEmbedNode,
+  sticky_note: withCanvasPresence(CanvasStickyNoteNode),
+  link: withCanvasPresence(CanvasLinkNode),
+  image: withCanvasPresence(CanvasImageNode),
+  entity_embed: withCanvasPresence(CanvasEntityEmbedNode),
 };
 
 const infoChip: CSSProperties = {
@@ -260,6 +264,22 @@ function CanvasSurface({
     useReactFlow();
   const toast = useToast();
   const {createNode, deleteEdge, updateNodeGeometry} = useCanvas();
+  const {select: reportSelection} = useCanvasPresence();
+
+  /**
+   * Reports the officer's active node to everyone else on the board.
+   * `selected` node state, not hover - a click, a drag, or opening a node to
+   * edit its content all select it first, so this one signal covers all
+   * three without a separate drag-start/edit-start hook. Ambiguous when more
+   * than one node is selected (a drag-select box) - report nothing rather
+   * than guess which one to attribute.
+   */
+  const handleSelectionChange = useCallback(
+    ({nodes: selectedNodes}: {nodes: Node[]}) => {
+      reportSelection(selectedNodes.length === 1 ? selectedNodes[0]!.id : null);
+    },
+    [reportSelection],
+  );
 
   /**
    * Connecting FROM a coloured node paints what it connects TO - so
@@ -469,6 +489,7 @@ function CanvasSurface({
         onEdgesChange={onEdgesChange}
         onEdgeDoubleClick={handleEdgeDoubleClick}
         onConnect={handleConnectAndPaint}
+        onSelectionChange={handleSelectionChange}
         // "loose": every CanvasNodeHandles dot is type="source" - loose mode
         // lets any handle both start and receive a connection, which is
         // what a plain, directionless "connect A to B" needs.

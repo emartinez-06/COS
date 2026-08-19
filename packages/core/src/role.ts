@@ -167,6 +167,22 @@ export const POSITION_LABELS: Record<Position, string> = {
 export const ALL_POSITIONS: readonly Position[] = positionSchema.options;
 
 /**
+ * Position to Astryx colour name, for the canvas presence tag - the same
+ * "categorical colour lives in core" reasoning as `CATEGORY_COLORS` in
+ * `club-event.ts`, so the tag and any future client agree on a position's
+ * colour without hardcoding hex anywhere.
+ */
+export const POSITION_COLORS: Record<Position, string> = {
+  president: 'blue',
+  vice_president: 'purple',
+  treasurer: 'green',
+  marketing_director: 'orange',
+};
+
+/** Presence tag colour for an officer with no position set. */
+export const DEFAULT_PRESENCE_COLOR = 'gray';
+
+/**
  * What to call this person on screen.
  *
  * Prefers the specific title over the generic one, so an officer reads as

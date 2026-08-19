@@ -23,6 +23,7 @@
  * page title.
  */
 
+import {CanvasPresenceProvider} from '../../lib/canvas-presence-store';
 import {CanvasStoreProvider} from '../../lib/canvas-store';
 import {DocumentStoreProvider} from '../../lib/document-store';
 import {EventStoreProvider} from '../../lib/event-store';
@@ -40,13 +41,17 @@ export function CanvasProviders({children}: {children: React.ReactNode}) {
 
   return (
     <CanvasStoreProvider clubId={activeClub.clubId}>
-      <EventStoreProvider clubId={activeClub.clubId}>
-        <DocumentStoreProvider clubId={activeClub.clubId}>
-          <TreasuryStoreProvider clubId={activeClub.clubId}>
-            {children}
-          </TreasuryStoreProvider>
-        </DocumentStoreProvider>
-      </EventStoreProvider>
+      {/* Club-scoped, not board-scoped - a club has exactly one board, so
+          there is nothing this needs from CanvasStoreProvider itself. */}
+      <CanvasPresenceProvider clubId={activeClub.clubId}>
+        <EventStoreProvider clubId={activeClub.clubId}>
+          <DocumentStoreProvider clubId={activeClub.clubId}>
+            <TreasuryStoreProvider clubId={activeClub.clubId}>
+              {children}
+            </TreasuryStoreProvider>
+          </DocumentStoreProvider>
+        </EventStoreProvider>
+      </CanvasPresenceProvider>
     </CanvasStoreProvider>
   );
 }

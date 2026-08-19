@@ -10,6 +10,7 @@ import type {Position, Role} from '@cos/core';
 import {and, eq} from 'drizzle-orm';
 
 import {db} from '../db/client.js';
+import {user} from '../db/schema/auth.js';
 import {clubMembers, clubs} from '../db/schema/club.js';
 
 /**
@@ -77,4 +78,36 @@ export async function listMemberships(
     .innerJoin(clubs, eq(clubMembers.clubId, clubs.id))
     .where(eq(clubMembers.userId, userId))
     .orderBy(clubs.name);
+}
+
+/** A person's role, position, and display name for one club - the shape the canvas presence socket needs. */
+export interface PresenceMembership {
+  role: Role;
+  position: Position | null;
+  name: string;
+}
+
+/**
+ * Like `findMembership`, but for the canvas presence socket rather than an
+ * authorization decision: it needs `position` (for the tag's colour) and
+ * `name` (for the tag's text), which `findMembership` deliberately omits.
+ * Still resolves `role` the same way, so the socket's own capability check
+ * (`can(role, 'canvas:view')`) is exactly as trustworthy as any other route's.
+ */
+export async function findMembershipForPresence(
+  userId: string,
+  clubId: string,
+): Promise<PresenceMembership | null> {
+  const [row] = await db
+    .select({
+      role: clubMembers.role,
+      position: clubMembers.position,
+      name: user.name,
+    })
+    .from(clubMembers)
+    .innerJoin(user, eq(clubMembers.userId, user.id))
+    .where(and(eq(clubMembers.userId, userId), eq(clubMembers.clubId, clubId)))
+    .limit(1);
+
+  return row ?? null;
 }

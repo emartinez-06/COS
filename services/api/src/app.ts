@@ -16,6 +16,7 @@ import type {AppEnv} from './auth/middleware.js';
 import {withSession} from './auth/middleware.js';
 import {env, isProduction} from './env.js';
 import {canvasRoutes} from './routes/canvas.js';
+import {canvasPresenceRoutes} from './routes/canvas-presence.js';
 import {documentRoutes} from './routes/documents.js';
 import {eventRoutes} from './routes/events.js';
 import {treasuryRoutes} from './routes/treasury.js';
@@ -80,6 +81,7 @@ app.route('/api', invitationRoutes);
 app.route('/api', documentRoutes);
 app.route('/api', treasuryRoutes);
 app.route('/api', canvasRoutes);
+app.route('/api', canvasPresenceRoutes);
 app.route('/api', presenceRoutes);
 
 app.doc('/openapi.json', {

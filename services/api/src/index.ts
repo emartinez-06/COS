@@ -3,15 +3,25 @@
  */
 
 import {serve} from '@hono/node-server';
+import {WebSocketServer} from 'ws';
 
 import {app} from './app.js';
 import {closeDatabase} from './db/client.js';
 import {env} from './env.js';
 
-const server = serve({fetch: app.fetch, port: env.PORT}, (info) => {
-  console.log(`COS API listening on http://localhost:${info.port}`);
-  console.log(`  docs  http://localhost:${info.port}/docs`);
-});
+// `noServer: true` because the underlying HTTP server already exists (below,
+// via `serve()`) - this WebSocketServer only ever gets a connection through
+// `@hono/node-server`'s own upgrade handling, matching `upgradeWebSocket`'s
+// routes in canvas-presence.ts.
+const wss = new WebSocketServer({noServer: true});
+
+const server = serve(
+  {fetch: app.fetch, port: env.PORT, websocket: {server: wss}},
+  (info) => {
+    console.log(`COS API listening on http://localhost:${info.port}`);
+    console.log(`  docs  http://localhost:${info.port}/docs`);
+  },
+);
 
 /**
  * Finish in-flight requests before dropping the pool. Without this, a redeploy

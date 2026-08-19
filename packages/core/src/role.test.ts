@@ -3,6 +3,8 @@ import {describe, expect, it} from 'vitest';
 import {
   ALL_CAPABILITIES,
   ALL_POSITIONS,
+  DEFAULT_PRESENCE_COLOR,
+  POSITION_COLORS,
   POSITION_LABELS,
   ROLE_LABELS,
   STATEMENT,
@@ -235,6 +237,24 @@ describe('positions', () => {
     const position: Position = 'president';
     expect(can('member', 'expense:view')).toBe(false);
     expect(memberTitle('member', position)).toBe('President');
+  });
+
+  it('gives every position a colour, since the canvas presence tag renders these', () => {
+    for (const position of ALL_POSITIONS) {
+      expect(POSITION_COLORS[position], position).toBeTruthy();
+    }
+  });
+
+  it('gives every position a distinct colour', () => {
+    const colors = ALL_POSITIONS.map((position) => POSITION_COLORS[position]);
+    expect(new Set(colors).size).toBe(colors.length);
+  });
+
+  it('gives a no-position officer a fallback colour distinct from every named position', () => {
+    expect(DEFAULT_PRESENCE_COLOR).toBeTruthy();
+    expect(Object.values(POSITION_COLORS)).not.toContain(
+      DEFAULT_PRESENCE_COLOR,
+    );
   });
 });
 
