@@ -1,6 +1,11 @@
 /**
- * In-memory state for live canvas presence: who is connected to a club's
- * board right now, and which node (if any) each connection has selected.
+ * In-memory state for live canvas presence and board sync: who is connected
+ * to a club's board right now, which node (if any) each connection has
+ * selected, and - via `broadcastSync` - a channel for the canvas REST
+ * routes to push a factual change (a move, an edit, a delete) to everyone
+ * else connected. One registry, one WebSocket connection per officer,
+ * carrying both concerns - see `@cos/core`'s `canvas-sync.ts` module doc for
+ * why they stay separate schemas despite sharing a transport.
  *
  * Nothing here is persisted, on purpose - see `@cos/core`'s
  * `canvas-presence.ts` module doc. Both Maps below live in this one process
@@ -10,7 +15,12 @@
  * deployment, not a cluster.
  */
 
-import type {CanvasPresenceEntry, CanvasPresenceServerMessage, Position} from '@cos/core';
+import type {
+  CanvasPresenceEntry,
+  CanvasPresenceServerMessage,
+  CanvasSyncServerMessage,
+  Position,
+} from '@cos/core';
 import {DEFAULT_PRESENCE_COLOR, POSITION_COLORS} from '@cos/core';
 import type {WSContext} from 'hono/ws';
 
@@ -98,11 +108,15 @@ export function leave(clubId: string, connectionId: string): void {
     boards.delete(clubId);
   }
   if (connection?.currentNodeId) {
-    broadcast(clubId, connectionId, {
-      type: 'presence-clear',
-      userId: connection.userId,
-      nodeId: connection.currentNodeId,
-    });
+    broadcast(
+      clubId,
+      {
+        type: 'presence-clear',
+        userId: connection.userId,
+        nodeId: connection.currentNodeId,
+      },
+      connectionId,
+    );
   }
 }
 
@@ -126,22 +140,26 @@ export function setNode(
   connection.currentNodeId = nodeId;
 
   if (previousNodeId && previousNodeId !== nodeId) {
-    broadcast(clubId, connectionId, {
-      type: 'presence-clear',
-      userId: connection.userId,
-      nodeId: previousNodeId,
-    });
+    broadcast(
+      clubId,
+      {type: 'presence-clear', userId: connection.userId, nodeId: previousNodeId},
+      connectionId,
+    );
   }
   if (nodeId) {
-    broadcast(clubId, connectionId, {
-      type: 'presence',
-      entry: {
-        userId: connection.userId,
-        name: connection.name,
-        positionColor: connection.positionColor,
-        nodeId,
+    broadcast(
+      clubId,
+      {
+        type: 'presence',
+        entry: {
+          userId: connection.userId,
+          name: connection.name,
+          positionColor: connection.positionColor,
+          nodeId,
+        },
       },
-    });
+      connectionId,
+    );
   }
 }
 
@@ -169,10 +187,26 @@ export function snapshot(
   return entries;
 }
 
+/**
+ * Pushes a board-sync message (a move, an edit, a create, a delete) to
+ * every connection on the club's board, called from the canvas REST routes
+ * after a successful write. Unlike presence, there is no sender connection
+ * to exclude - a REST write carries no WebSocket connection id at all, and
+ * echoing the change back to the writer's own tab is harmless: the client
+ * applies it as the same idempotent upsert/removal it would for anyone
+ * else's change.
+ */
+export function broadcastSync(
+  clubId: string,
+  message: CanvasSyncServerMessage,
+): void {
+  broadcast(clubId, message);
+}
+
 function broadcast(
   clubId: string,
-  exceptConnectionId: string,
-  message: CanvasPresenceServerMessage,
+  message: CanvasPresenceServerMessage | CanvasSyncServerMessage,
+  exceptConnectionId?: string,
 ): void {
   const club = boards.get(clubId);
   if (!club) {

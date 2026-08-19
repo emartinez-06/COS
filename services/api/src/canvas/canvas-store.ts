@@ -20,7 +20,7 @@ import type {
   CanvasNodeGeometryPatch,
   CanvasViewportPatch,
 } from '@cos/core';
-import {and, eq} from 'drizzle-orm';
+import {and, eq, or} from 'drizzle-orm';
 
 import {db} from '../db/client.js';
 import {canvasBoards} from '../db/schema/canvas-boards.js';
@@ -392,16 +392,32 @@ export async function updateNodeContent(
   return toNode(row);
 }
 
-/** Removes a node and every edge attached to it (cascades at the database level). */
+/**
+ * Removes a node and every edge attached to it (cascades at the database
+ * level). Returns the ids of the edges that went with it, read *before* the
+ * delete, so a caller broadcasting the change over the presence socket
+ * knows exactly which edges to announce as gone - the cascade itself is
+ * silent at the database layer.
+ */
 export async function deleteNode(
   clubId: string,
   nodeId: string,
-): Promise<void> {
+): Promise<{deletedEdgeIds: string[]}> {
   const node = await requireNodeInClub(clubId, nodeId);
+
+  const attachedEdges = await db
+    .select({id: canvasEdges.id})
+    .from(canvasEdges)
+    .where(
+      or(eq(canvasEdges.sourceNodeId, nodeId), eq(canvasEdges.targetNodeId, nodeId)),
+    );
+
   if (node.nodeType === 'image' && node.imageStorageKey) {
     await deleteObject(node.imageStorageKey);
   }
   await db.delete(canvasNodes).where(eq(canvasNodes.id, nodeId));
+
+  return {deletedEdgeIds: attachedEdges.map((edge) => edge.id)};
 }
 
 /** The bytes of an `image` node. */

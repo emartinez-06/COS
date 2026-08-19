@@ -40,6 +40,7 @@ import {HTTPException} from 'hono/http-exception';
 
 import type {AppEnv} from '../auth/middleware.js';
 import {requireCapability} from '../auth/middleware.js';
+import {broadcastSync} from '../canvas/canvas-presence.js';
 import type {UploadedImage} from '../canvas/canvas-store.js';
 import {
   MissingImageFileError,
@@ -327,6 +328,7 @@ canvasRoutes.openapi(updateNodeGeometryRoute, async (c) => {
   const {clubId, nodeId} = c.req.valid('param');
   const patch = c.req.valid('json');
   const node = await updateNodeGeometry(clubId, nodeId, patch).catch(asHttp);
+  broadcastSync(clubId, {type: 'node-upserted', node});
   return c.json(node, 200);
 });
 
@@ -334,12 +336,17 @@ canvasRoutes.openapi(updateNodeContentRoute, async (c) => {
   const {clubId, nodeId} = c.req.valid('param');
   const patch = c.req.valid('json');
   const node = await updateNodeContent(clubId, nodeId, patch).catch(asHttp);
+  broadcastSync(clubId, {type: 'node-upserted', node});
   return c.json(node, 200);
 });
 
 canvasRoutes.openapi(deleteNodeRoute, async (c) => {
   const {clubId, nodeId} = c.req.valid('param');
-  await deleteNode(clubId, nodeId).catch(asHttp);
+  const {deletedEdgeIds} = await deleteNode(clubId, nodeId).catch(asHttp);
+  for (const edgeId of deletedEdgeIds) {
+    broadcastSync(clubId, {type: 'edge-deleted', edgeId});
+  }
+  broadcastSync(clubId, {type: 'node-deleted', nodeId});
   return c.body(null, 204);
 });
 
@@ -354,12 +361,14 @@ canvasRoutes.openapi(createEdgeRoute, async (c) => {
   const draft = c.req.valid('json');
   const board = await getOrCreateBoard(clubId);
   const edge = await createEdge(clubId, board.id, draft).catch(asHttp);
+  broadcastSync(clubId, {type: 'edge-upserted', edge});
   return c.json(edge, 201);
 });
 
 canvasRoutes.openapi(deleteEdgeRoute, async (c) => {
   const {clubId, edgeId} = c.req.valid('param');
   await deleteEdge(clubId, edgeId).catch(asHttp);
+  broadcastSync(clubId, {type: 'edge-deleted', edgeId});
   return c.body(null, 204);
 });
 
@@ -465,6 +474,7 @@ canvasRoutes.post('/clubs/:clubId/canvas/board/nodes', async (c) => {
     const node = await createNode(clubId, board.id, parsed.data, file).catch(
       asHttp,
     );
+    broadcastSync(clubId, {type: 'node-upserted', node});
     return c.json(node, 201);
   }
 
@@ -484,6 +494,7 @@ canvasRoutes.post('/clubs/:clubId/canvas/board/nodes', async (c) => {
   }
 
   const node = await createNode(clubId, board.id, parsed.data).catch(asHttp);
+  broadcastSync(clubId, {type: 'node-upserted', node});
   return c.json(node, 201);
 });
 
