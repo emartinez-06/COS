@@ -99,6 +99,8 @@ interface MonthGridProps {
   selectedDay: Date | null;
   onSelectEvent: (event: ClubEvent) => void;
   onSelectDay: (day: Date) => void;
+  /** Double-clicking a day is a shortcut straight to the composer, not just a selection. */
+  onCreateDay: (day: Date) => void;
 }
 
 export function MonthGrid({
@@ -108,6 +110,7 @@ export function MonthGrid({
   selectedDay,
   onSelectEvent,
   onSelectDay,
+  onCreateDay,
 }: MonthGridProps) {
   const days = buildMonthGrid(month);
   const eventsByDay = groupEventsByDay(events);
@@ -148,7 +151,8 @@ export function MonthGrid({
               }}
               // A day cell is a create affordance for officers and a focus
               // target for members; the composer decides what a click means.
-              onClick={() => onSelectDay(day)}>
+              onClick={() => onSelectDay(day)}
+              onDoubleClick={() => onCreateDay(day)}>
               <HStack gap={1} vAlign="center" hAlign="start">
                 <HStack
                   vAlign="center"

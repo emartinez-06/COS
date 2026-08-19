@@ -94,6 +94,15 @@ export function CalendarView() {
     setSelectedEventId(null);
   };
 
+  // Double-clicking a day jumps straight to the composer; a member's
+  // double-click is a no-op since the dialog is never rendered for them.
+  const handleCreateDay = (day: Date) => {
+    if (!canCreate) {
+      return;
+    }
+    openComposer(null, day);
+  };
+
   const handleSubmit = async (draft: EventDraft) => {
     if (composer.event) {
       await updateEvent(composer.event.id, draft);
@@ -172,6 +181,7 @@ export function CalendarView() {
                   setSelectedDay(new Date(event.startsAt));
                 }}
                 onSelectDay={handleSelectDay}
+                onCreateDay={handleCreateDay}
               />
             </VStack>
           </LayoutContent>
