@@ -1,10 +1,10 @@
 /**
  * The COS theme.
  *
- * Direction: Apple-inspired restraint over a Notion-like working surface.
- * A rich navy carries every primary action, the page sits on a cool paper
- * ground rather than pure white, and corners are a touch softer than the
- * Astryx default so dense calendar cells still read as tappable objects.
+ * Direction: friendly restraint over a Notion-like working surface. A rich
+ * navy carries every primary action, the page sits on a cool paper ground
+ * rather than pure white, and corners are a touch softer than the Astryx
+ * default so dense calendar cells still read as tappable objects.
  *
  * Only the accent seed and a handful of ground tones are set here. Astryx
  * derives the rest through its HCT colour model, and the categorical hues
@@ -33,15 +33,18 @@ export const cosTheme = defineTheme({
     contrast: 'standard',
   },
 
-  // Apple's system stack. On macOS and iOS this resolves to SF Pro, which is
-  // the whole point of "Apple-inspired" typography - matching the OS rather
-  // than shipping a webfont that merely resembles it.
+  // DM Sans over the system stack: a humanist grotesque with a taller
+  // x-height and rounder terminals, which reads as considerably friendlier
+  // than SF Pro/Segoe UI on the dense surfaces this product is mostly made
+  // of (calendar cells, tables, forms). Loaded via next/font/google in
+  // app/layout.tsx, which self-hosts it and exposes it as this CSS variable
+  // - the fallback stack is what renders in the gap before it loads.
   typography: {
     scale: {base: 15, ratio: 1.2},
     body: {
-      family: '-apple-system',
+      family: 'var(--font-dm-sans)',
       fallbacks:
-        'BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+        '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
     },
     heading: {weight: 'semibold'},
     code: {
