@@ -41,6 +41,7 @@ import {HTTPException} from 'hono/http-exception';
 
 import type {AppEnv} from '../auth/middleware.js';
 import {requireCapability} from '../auth/middleware.js';
+import {hasOpenSession} from '../documents/document-collab.js';
 import type {ReadScope, UploadedFile} from '../documents/document-store.js';
 import {
   createFileDocument,
@@ -300,6 +301,28 @@ documentRoutes.openapi(patchRoute, async (c) => {
   const {clubId, documentId} = c.req.valid('param');
   const patch = c.req.valid('json');
   const editorId = requireUser(c);
+
+  /**
+   * A content change while a live collaborative session is open is refused
+   * rather than applied - see docs/COLLABORATIVE-EDITING.md's "reconcile the
+   * REST path" step. The Yjs document is the authoritative content for as
+   * long as anyone is connected to it; a direct write underneath that would
+   * either be silently lost at the next compaction or, worse, silently
+   * un-lose itself and desync the two. Metadata (title, summary, section,
+   * status) is untouched by this - none of it ever went through the version
+   * counter that guards content either.
+   */
+  if (patch.content !== undefined && hasOpenSession(documentId)) {
+    const current = await findDocument(clubId, documentId, scopeFor(c));
+    return c.json(
+      {
+        error:
+          'This document has a live collaborative session open - edit it there instead of saving directly',
+        currentVersion: current?.version ?? 0,
+      },
+      409,
+    );
+  }
 
   const result = await updateDocument(clubId, documentId, patch, editorId);
 

@@ -57,6 +57,20 @@
       "when": 1787100280380,
       "tag": "0007_fluffy_proudstar",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1787251611402,
+      "tag": "0008_nappy_tyger_tiger",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1787259364215,
+      "tag": "0009_tan_harrier",
+      "breakpoints": true
     }
   ]
 }

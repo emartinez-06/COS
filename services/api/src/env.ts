@@ -69,6 +69,25 @@ const envSchema = z.object({
     .string()
     .default('true')
     .transform((value) => value !== 'false'),
+
+  /**
+   * OnlyOffice Docs CE - real docx/xlsx/pptx editing. Optional: a self-hoster
+   * who only authors markdown/text documents never runs this container, so
+   * the routes it gates check for its presence rather than this failing
+   * startup the way BETTER_AUTH_SECRET does.
+   */
+  ONLYOFFICE_JWT_SECRET: z.string().optional(),
+  /**
+   * The address the OnlyOffice *container* uses to reach back to this API -
+   * for its download fetch and its save callback, both server-to-server.
+   * Not the browser-facing address, and not `services/api`'s own address on
+   * its own network: this API still runs on the host (`pnpm dev`), not
+   * inside `docker-compose.yml`'s network, so a container-internal DNS name
+   * like `http://api:3200` would not resolve. `host.docker.internal` is the
+   * name Docker Desktop and OrbStack both provide for "the host machine,
+   * from inside a container."
+   */
+  ONLYOFFICE_CALLBACK_ORIGIN: z.string().default('http://host.docker.internal:3200'),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -14,6 +14,7 @@ export * from './treasury.js';
 export * from './canvas.js';
 export * from './canvas-presence.js';
 export * from './canvas-sync.js';
+export * from './document-collab.js';
 export * from './ports.js';
 export * from './announcement.js';
 export * from './presence.js';

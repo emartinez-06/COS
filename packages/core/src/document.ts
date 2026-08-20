@@ -162,6 +162,45 @@ export const ALLOWED_DOCUMENT_CONTENT_TYPES: readonly string[] = [
 ];
 
 /**
+ * OnlyOffice's own document-family name and file extension for a content
+ * type, or `null` when OnlyOffice does not understand the format.
+ *
+ * Pure and shared for the same reason `checkDocumentUpload` is: the API's
+ * OnlyOffice routes and `apps/web`'s document detail view both need to
+ * answer "does this file get the OnlyOffice editor or the plain download
+ * panel", and two separate implementations of that question could disagree
+ * about which file types are real Office documents.
+ */
+const ONLYOFFICE_CONTENT_TYPES: Readonly<
+  Record<string, {documentType: 'word' | 'cell' | 'slide'; fileType: string}>
+> = {
+  'application/msword': {documentType: 'word', fileType: 'doc'},
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': {
+    documentType: 'word',
+    fileType: 'docx',
+  },
+  'application/vnd.ms-excel': {documentType: 'cell', fileType: 'xls'},
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': {
+    documentType: 'cell',
+    fileType: 'xlsx',
+  },
+  'application/vnd.ms-powerpoint': {documentType: 'slide', fileType: 'ppt'},
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation':
+    {documentType: 'slide', fileType: 'pptx'},
+};
+
+export interface OnlyOfficeFileInfo {
+  documentType: 'word' | 'cell' | 'slide';
+  fileType: string;
+}
+
+export function onlyOfficeFileInfo(
+  contentType: string,
+): OnlyOfficeFileInfo | null {
+  return ONLYOFFICE_CONTENT_TYPES[contentType] ?? null;
+}
+
+/**
  * The bytes of an uploaded file.
  *
  * A structural type rather than `Blob`, because core compiles with

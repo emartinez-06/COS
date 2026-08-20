@@ -71,9 +71,47 @@ services:
       retries: 10
       start_period: 10s
 
+  # OnlyOffice Docs CE - real docx/xlsx/pptx editing, standing alongside the
+  # collaborative-markdown work rather than being part of it: it brings its
+  # own real-time collaboration engine and shares no code with `services/api`
+  # beyond the document metadata it reads/writes back through it. Optional -
+  # a self-hoster who only authors markdown/text documents never needs this
+  # running at all, and services/api answers "not configured" on its
+  # OnlyOffice routes without ONLYOFFICE_JWT_SECRET set.
+  #
+  # The image bundles its own internal Postgres, Redis, and RabbitMQ in one
+  # container for a simple deployment - no extra services needed, matching
+  # this file's "no extra containers for self-hosting" bar.
+  onlyoffice:
+    image: onlyoffice/documentserver:8.3
+    restart: unless-stopped
+    environment:
+      JWT_ENABLED: 'true'
+      JWT_SECRET: ${ONLYOFFICE_JWT_SECRET:-}
+      JWT_HEADER: Authorization
+      # The callback POST (services/api's /internal/onlyoffice/callback) is
+      # verified from the signed body rather than the header - this is
+      # OnlyOffice's own documented mechanism for that specific request.
+      JWT_IN_BODY: 'true'
+    ports:
+      - '${ONLYOFFICE_PORT:-8082}:80'
+    volumes:
+      - onlyoffice-data:/var/www/onlyoffice/Data
+      - onlyoffice-log:/var/log/onlyoffice
+    networks:
+      - cos
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost/healthcheck']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
 volumes:
   postgres-data:
   minio-data:
+  onlyoffice-data:
+  onlyoffice-log:
 
 networks:
   cos:

@@ -1,0 +1,56 @@
+/**
+ * Escape hatch, same family as canvas-node-handles.module.css: Tiptap's
+ * collaboration cursor extension renders plain DOM nodes with fixed class
+ * names (`collaboration-cursor__caret`/`__label`/`__selection`) that Astryx's
+ * `className` forwarding has no way to reach, and ProseMirror's own content
+ * element (`.ProseMirror`) needs real CSS, not props, for caret color and
+ * paragraph spacing.
+ */
+
+.editorContent {
+  min-height: 420px;
+}
+
+.editorContent :global(.ProseMirror) {
+  outline: none;
+  min-height: 420px;
+  padding: var(--spacing-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.editorContent :global(.ProseMirror p) {
+  margin-block: var(--spacing-2);
+}
+
+.editorContent :global(.ProseMirror p:first-child) {
+  margin-block-start: 0;
+}
+
+/* One officer's live cursor, rendered by y-prosemirror's default cursor builder. */
+.editorContent :global(.collaboration-cursor__caret) {
+  position: relative;
+  margin-inline: -1px;
+  border-left: 1.5px solid;
+  border-right: 1.5px solid;
+  word-break: normal;
+  pointer-events: none;
+}
+
+.editorContent :global(.collaboration-cursor__label) {
+  position: absolute;
+  top: -1.4em;
+  left: -1.5px;
+  padding-inline: var(--spacing-1);
+  border-radius: var(--radius-field);
+  font-size: 11px;
+  font-weight: var(--font-weight-semibold);
+  line-height: normal;
+  white-space: nowrap;
+  color: white;
+  user-select: none;
+}
+
+.editorContent :global(.collaboration-cursor__selection) {
+  opacity: 0.3;
+}

@@ -7,11 +7,13 @@
  * check - the same rule the calendar follows, and the reason "one dashboard,
  * two views" is a real claim rather than two implementations that drift.
  *
- * The two kinds diverge here and nowhere else. A `text` document renders its
- * content as Markdown; a `file` document renders what is known about the file
- * and a way to get it. Everything around them - the title, the section, the
- * history, the officer controls - is identical, which is the payoff for making
- * them one model instead of two.
+ * The two kinds diverge here and nowhere else. A `text` document renders as a
+ * live, always-on collaborative editor (`DocumentCollabEditor`) - readable by
+ * anyone with `document:view`, writable by anyone with `document:edit`,
+ * updating as anyone connected types; a `file` document renders what is known
+ * about the file and a way to get it. Everything around them - the title, the
+ * section, the history, the officer controls - is identical, which is the
+ * payoff for making them one model instead of two.
  */
 
 import {useState, type CSSProperties} from 'react';
@@ -25,7 +27,6 @@ import {Card} from '@astryxdesign/core/Card';
 import {EmptyState} from '@astryxdesign/core/EmptyState';
 import {Icon} from '@astryxdesign/core/Icon';
 import {Link} from '@astryxdesign/core/Link';
-import {Markdown} from '@astryxdesign/core/Markdown';
 import {Skeleton} from '@astryxdesign/core/Skeleton';
 import {HStack, VStack} from '@astryxdesign/core/Stack';
 import {Heading, Text} from '@astryxdesign/core/Text';
@@ -36,15 +37,17 @@ import {
   PaperClipIcon,
 } from '@heroicons/react/24/outline';
 import type {ClubDocumentDetail} from '@cos/core';
-import {DOCUMENT_SECTION_LABELS} from '@cos/core';
+import {DOCUMENT_SECTION_LABELS, onlyOfficeFileInfo} from '@cos/core';
 
 import {formatDateTimeShort} from '../../lib/datetime';
 import {useDocument, useDocuments} from '../../lib/document-store';
 import {saveBlob} from '../../lib/download';
 import {formatBytes} from '../../lib/format';
 import {useCan} from '../../lib/session';
+import {DocumentCollabEditor} from './document-collab-editor';
 import {DocumentEditor} from './document-editor';
 import {DocumentHistory} from './document-history';
+import {DocumentOnlyOfficeEditor} from './document-onlyoffice-editor';
 import {DocumentReplaceFileDialog} from './document-replace-file-dialog';
 
 const page: CSSProperties = {
@@ -60,8 +63,7 @@ const titleText: CSSProperties = {overflowWrap: 'anywhere'};
 
 export function DocumentDetailView({documentId}: {documentId: string}) {
   const {updateDocument, deleteDocument, repository, clubId} = useDocuments();
-  const {document, isLoading, isMissing, error, reload, set} =
-    useDocument(documentId);
+  const {document, isLoading, isMissing, error, set} = useDocument(documentId);
   const canEdit = useCan('document:edit');
   const canDelete = useCan('document:delete');
   const router = useRouter();
@@ -217,22 +219,30 @@ export function DocumentDetailView({documentId}: {documentId: string}) {
               set(saved);
               return saved;
             }}
-            onReload={reload}
             onDone={() => setIsEditing(false)}
           />
-        ) : document.kind === 'file' ? (
-          <FileBody document={document} onDownload={() => void download()} />
+        ) : null}
+
+        {document.kind === 'file' ? (
+          document.file && onlyOfficeFileInfo(document.file.contentType) ? (
+            // Always mounted, whether or not the metadata form above is
+            // open - same reasoning as the text-kind branch below: content
+            // editing is independent of "Edit", which only ever touches
+            // metadata now.
+            <DocumentOnlyOfficeEditor clubId={clubId} documentId={documentId} />
+          ) : !isEditing ? (
+            <FileBody document={document} onDownload={() => void download()} />
+          ) : null
         ) : (
-          <Card padding={6}>
-            {document.content ? (
-              <Markdown headingLevelStart={3} contentWidth={720}>
-                {document.content}
-              </Markdown>
-            ) : (
-              <Text type="body" color="secondary">
-                This document is empty.
-              </Text>
-            )}
+          // Always mounted, whether or not the metadata form above is open -
+          // content editing is live and no longer gated by "Edit". See
+          // DocumentCollabEditor's module doc.
+          <Card padding={0}>
+            <DocumentCollabEditor
+              clubId={clubId}
+              documentId={documentId}
+              canEdit={canEdit}
+            />
           </Card>
         )}
 

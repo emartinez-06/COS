@@ -571,6 +571,121 @@ export async function replaceDocumentFile(
 }
 
 /**
+ * Replaces a file document's bytes from an OnlyOffice save, unconditionally.
+ *
+ * Same shape as `replaceDocumentFile`, minus the `expectedVersion` gate -
+ * OnlyOffice's own `key` mechanism (see `services/api/src/documents/
+ * onlyoffice.ts`) is the concurrency control for a document open in its
+ * editor, not ours. Called only from the OnlyOffice callback route, never
+ * from a REST caller.
+ */
+export async function replaceDocumentFileFromOnlyOffice(
+  clubId: string,
+  documentId: string,
+  file: UploadedFile,
+  editorId: string | null,
+): Promise<ClubDocumentDetail | null> {
+  const existing = await findRow(clubId, documentId, {includeDrafts: true});
+  if (!existing || existing.kind !== 'file') {
+    return null;
+  }
+
+  const nextVersion = existing.version + 1;
+  const storageKey = documentStorageKey(clubId, documentId, nextVersion);
+  await putObject(storageKey, file.bytes, file.contentType);
+
+  const row = await db.transaction(async (tx) => {
+    const [updated] = await tx
+      .update(documents)
+      .set({
+        version: nextVersion,
+        storageKey,
+        fileName: file.name,
+        contentType: file.contentType,
+        byteSize: file.bytes.byteLength,
+        updatedBy: editorId ?? existing.updatedBy,
+      })
+      .where(and(eq(documents.clubId, clubId), eq(documents.id, documentId)))
+      .returning();
+
+    if (!updated) {
+      throw new Error(`Document ${documentId} disappeared during OnlyOffice save`);
+    }
+
+    await tx.insert(documentRevisions).values({
+      id: `rev_${randomUUID()}`,
+      documentId,
+      version: nextVersion,
+      storageKey,
+      fileName: file.name,
+      contentType: file.contentType,
+      byteSize: file.bytes.byteLength,
+      authoredBy: editorId,
+    });
+
+    return updated;
+  });
+
+  return toDetail(row);
+}
+
+/**
+ * Materializes a live collaborative session's current text as a new
+ * revision, unconditionally.
+ *
+ * Called only by `document-collab.ts`'s compaction timer, never by a route -
+ * there is no `expectedVersion` to check because compaction is authoritative:
+ * the Yjs document *is* the current state by the time this runs, not a
+ * client's guess at what the current state might still be. Skips writing a
+ * revision when the compacted text matches what is already stored, so a
+ * session that opened and closed without anyone typing does not grow a
+ * no-op revision.
+ */
+export async function compactDocumentRevision(
+  clubId: string,
+  documentId: string,
+  content: string,
+  authorId: string | null,
+): Promise<ClubDocumentDetail | null> {
+  const existing = await findRow(clubId, documentId, {includeDrafts: true});
+  if (!existing || existing.kind !== 'text') {
+    return null;
+  }
+
+  const current = await currentContent(existing);
+  if (current === content) {
+    return toDetail(existing);
+  }
+
+  const row = await db.transaction(async (tx) => {
+    const [updated] = await tx
+      .update(documents)
+      .set({
+        version: sql`${documents.version} + 1`,
+        updatedBy: authorId ?? existing.updatedBy,
+      })
+      .where(and(eq(documents.clubId, clubId), eq(documents.id, documentId)))
+      .returning();
+
+    if (!updated) {
+      throw new Error(`Document ${documentId} disappeared during compaction`);
+    }
+
+    await tx.insert(documentRevisions).values({
+      id: `rev_${randomUUID()}`,
+      documentId,
+      version: updated.version,
+      content,
+      authoredBy: authorId,
+    });
+
+    return updated;
+  });
+
+  return toDetail(row);
+}
+
+/**
  * Removes a document from the hub.
  *
  * A soft delete: the row is stamped rather than dropped, and the revision

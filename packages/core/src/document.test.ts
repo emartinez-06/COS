@@ -23,6 +23,7 @@ import {
   documentDraftSchema,
   documentPatchSchema,
   groupDocumentsBySection,
+  onlyOfficeFileInfo,
   textDocumentDraftSchema,
 } from './document.js';
 import type {ClubDocument} from './document.js';
@@ -163,6 +164,40 @@ describe('upload checks', () => {
       expect(type).not.toContain('html');
       expect(type).not.toContain('javascript');
     }
+  });
+});
+
+describe('onlyOfficeFileInfo', () => {
+  it('recognizes a modern Word document', () => {
+    expect(
+      onlyOfficeFileInfo(
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      ),
+    ).toEqual({documentType: 'word', fileType: 'docx'});
+  });
+
+  it('recognizes a modern Excel workbook', () => {
+    expect(
+      onlyOfficeFileInfo(
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      ),
+    ).toEqual({documentType: 'cell', fileType: 'xlsx'});
+  });
+
+  it('recognizes a modern PowerPoint deck', () => {
+    expect(
+      onlyOfficeFileInfo(
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      ),
+    ).toEqual({documentType: 'slide', fileType: 'pptx'});
+  });
+
+  it('returns null for a PDF - OnlyOffice only understands Office formats here', () => {
+    expect(onlyOfficeFileInfo('application/pdf')).toBeNull();
+  });
+
+  it('returns null for an image', () => {
+    expect(onlyOfficeFileInfo('image/png')).toBeNull();
   });
 });
 
