@@ -55,6 +55,14 @@ const input: CSSProperties = {
  * same url the officer already typed. The node auto-grows to
  * `VIDEO_NODE_MIN_SIZE` the first time it renders as a video unless it's
  * already at least that size.
+ *
+ * **Both fields live-refresh from a remote edit**, gated the same way the
+ * sticky note's text is: never while the field itself is focused, and
+ * never while this tab has an edit of its own still in flight
+ * (`hasPendingEditRef`, shared across both fields since they share one
+ * debounce timer) - otherwise blurring right after typing would snap the
+ * field back to the stale pre-edit value the instant focus left, before
+ * the debounced save has even reached the server.
  */
 export function CanvasLinkNode({id, data, selected}: NodeProps) {
   const {setNodes, getNode} = useReactFlow();
@@ -64,7 +72,9 @@ export function CanvasLinkNode({id, data, selected}: NodeProps) {
   const {accentColor} = initial;
   const [title, setTitle] = useState(initial.linkTitle ?? '');
   const [url, setUrl] = useState(initial.linkUrl ?? '');
+  const [focusedField, setFocusedField] = useState<'title' | 'url' | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasPendingEditRef = useRef(false);
   const autoResizedRef = useRef(false);
 
   useEffect(
@@ -74,13 +84,28 @@ export function CanvasLinkNode({id, data, selected}: NodeProps) {
     [],
   );
 
+  useEffect(() => {
+    if (focusedField === 'title' || hasPendingEditRef.current) return;
+    setTitle(initial.linkTitle ?? '');
+  }, [initial.linkTitle, focusedField]);
+
+  useEffect(() => {
+    if (focusedField === 'url' || hasPendingEditRef.current) return;
+    setUrl(initial.linkUrl ?? '');
+  }, [initial.linkUrl, focusedField]);
+
   const scheduleSave = useCallback(
     (patch: {title?: string; url?: string}) => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      hasPendingEditRef.current = true;
       saveTimerRef.current = setTimeout(() => {
-        void updateNodeContent(id, {nodeType: 'link', ...patch}).catch(() => {
-          toast({body: "Couldn't save the link - is the URL valid?", type: 'error'});
-        });
+        void updateNodeContent(id, {nodeType: 'link', ...patch})
+          .catch(() => {
+            toast({body: "Couldn't save the link - is the URL valid?", type: 'error'});
+          })
+          .finally(() => {
+            hasPendingEditRef.current = false;
+          });
       }, 500);
     },
     [id, updateNodeContent, toast],
@@ -174,6 +199,8 @@ export function CanvasLinkNode({id, data, selected}: NodeProps) {
           style={input}
           value={title}
           placeholder="Title"
+          onFocus={() => setFocusedField('title')}
+          onBlur={() => setFocusedField((current) => (current === 'title' ? null : current))}
           onChange={(event) => {
             setTitle(event.target.value);
             scheduleSave({title: event.target.value});
@@ -184,6 +211,8 @@ export function CanvasLinkNode({id, data, selected}: NodeProps) {
           style={input}
           value={url}
           placeholder="https://…"
+          onFocus={() => setFocusedField('url')}
+          onBlur={() => setFocusedField((current) => (current === 'url' ? null : current))}
           onChange={(event) => {
             setUrl(event.target.value);
             scheduleSave({url: event.target.value});

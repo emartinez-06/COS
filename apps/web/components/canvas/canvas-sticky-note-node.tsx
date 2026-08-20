@@ -60,6 +60,16 @@ const textarea: CSSProperties = {
  * inside it opt back out via `nodrag`. The textarea gets
  * `nodrag nowheel nopan` so typing/selecting text never pans or zooms the
  * board.
+ *
+ * **Text live-refreshes from a remote edit**, gated on two things: the
+ * textarea must not be focused (never steal keystrokes out from under
+ * someone typing), and this tab must not have an edit of its own still in
+ * flight (`hasPendingEditRef`) - without that second guard, blurring right
+ * after typing would apply the *stale* pre-edit value the instant focus
+ * left, since the debounced save has not reached the server yet and the
+ * WS echo carrying the real value has not arrived. The guard clears once
+ * that save settles, and the echo's own arrival is what re-triggers the
+ * sync a moment later.
  */
 export function CanvasStickyNoteNode({id, data, selected}: NodeProps) {
   const {setNodes} = useReactFlow();
@@ -71,7 +81,9 @@ export function CanvasStickyNoteNode({id, data, selected}: NodeProps) {
   const [color, setColor] = useState<StickyNoteColor>(
     initial.stickyNoteColor ?? 'yellow',
   );
+  const [isFocused, setIsFocused] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasPendingEditRef = useRef(false);
 
   useEffect(
     () => () => {
@@ -80,15 +92,23 @@ export function CanvasStickyNoteNode({id, data, selected}: NodeProps) {
     [],
   );
 
+  useEffect(() => {
+    if (isFocused || hasPendingEditRef.current) return;
+    setText(initial.stickyNoteText ?? '');
+  }, [initial.stickyNoteText, isFocused]);
+
   const scheduleSave = useCallback(
     (patch: {text?: string; color?: StickyNoteColor}) => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      hasPendingEditRef.current = true;
       saveTimerRef.current = setTimeout(() => {
-        void updateNodeContent(id, {nodeType: 'sticky_note', ...patch}).catch(
-          () => {
+        void updateNodeContent(id, {nodeType: 'sticky_note', ...patch})
+          .catch(() => {
             toast({body: "Couldn't save the sticky note.", type: 'error'});
-          },
-        );
+          })
+          .finally(() => {
+            hasPendingEditRef.current = false;
+          });
       }, 500);
     },
     [id, updateNodeContent, toast],
@@ -196,6 +216,8 @@ export function CanvasStickyNoteNode({id, data, selected}: NodeProps) {
           style={{...textarea, color: foreground}}
           value={text}
           placeholder="Type a note…"
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
           onChange={(event) => {
             setText(event.target.value);
             scheduleSave({text: event.target.value});
