@@ -9,6 +9,7 @@
 export * from './club-event.js';
 export * from './role.js';
 export * from './invitation.js';
+export * from './join-link.js';
 export * from './document.js';
 export * from './treasury.js';
 export * from './canvas.js';

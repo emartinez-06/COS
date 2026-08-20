@@ -14,6 +14,7 @@
 import {relations, sql} from 'drizzle-orm';
 import {
   index,
+  integer,
   pgEnum,
   pgTable,
   primaryKey,
@@ -150,9 +151,50 @@ export const clubInvitations = pgTable(
   ],
 );
 
+/** Mirrors `JoinLinkStatus` in @cos/core. */
+export const joinLinkStatus = pgEnum('join_link_status', ['active', 'revoked']);
+
+/**
+ * Join links, addressed to nobody. Unlike an invitation this is a bearer
+ * credential meant to be shared in a group chat and used by many different
+ * people, so there is no `email` column and no per-recipient state - only the
+ * link's own lifecycle (active until it expires or an admin revokes it) and a
+ * running count of how many memberships it has produced.
+ */
+export const clubJoinLinks = pgTable(
+  'club_join_links',
+  {
+    id: text('id').primaryKey(),
+    clubId: text('club_id')
+      .notNull()
+      .references(() => clubs.id, {onDelete: 'cascade'}),
+    /** High-entropy and URL-safe - this is the credential, not a lookup key like email. */
+    token: text('token').notNull(),
+    role: clubRole('role').notNull().default('member'),
+    position: clubPosition('position'),
+    status: joinLinkStatus('status').notNull().default('active'),
+    useCount: integer('use_count').notNull().default(0),
+    /** `set null` rather than cascade, matching `club_invitations.invited_by`. */
+    createdBy: text('created_by').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at', {withTimezone: true})
+      .notNull()
+      .defaultNow(),
+    expiresAt: timestamp('expires_at', {withTimezone: true}).notNull(),
+  },
+  (table) => [
+    // The public landing page's only query: resolve the token from the URL.
+    uniqueIndex('club_join_links_token_idx').on(table.token),
+    // The officer's management view: every link a club has ever created.
+    index('club_join_links_club_idx').on(table.clubId),
+  ],
+);
+
 export const clubsRelations = relations(clubs, ({many}) => ({
   members: many(clubMembers),
   invitations: many(clubInvitations),
+  joinLinks: many(clubJoinLinks),
 }));
 
 export const clubInvitationsRelations = relations(
@@ -176,6 +218,17 @@ export const clubMembersRelations = relations(clubMembers, ({one}) => ({
   }),
   user: one(user, {
     fields: [clubMembers.userId],
+    references: [user.id],
+  }),
+}));
+
+export const clubJoinLinksRelations = relations(clubJoinLinks, ({one}) => ({
+  club: one(clubs, {
+    fields: [clubJoinLinks.clubId],
+    references: [clubs.id],
+  }),
+  createdByUser: one(user, {
+    fields: [clubJoinLinks.createdBy],
     references: [user.id],
   }),
 }));

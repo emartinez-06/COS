@@ -25,6 +25,7 @@ import {treasuryRoutes} from './routes/treasury.js';
 import {presenceRoutes} from './routes/presence.js';
 import {healthRoutes} from './routes/health.js';
 import {invitationRoutes} from './routes/invitations.js';
+import {joinLinkRoutes} from './routes/join-links.js';
 import {sessionRoutes} from './routes/session.js';
 
 export const app = new OpenAPIHono<AppEnv>({
@@ -80,6 +81,7 @@ app.route('/', healthRoutes);
 app.route('/api', sessionRoutes);
 app.route('/api', eventRoutes);
 app.route('/api', invitationRoutes);
+app.route('/api', joinLinkRoutes);
 app.route('/api', documentRoutes);
 app.route('/api', documentCollabRoutes);
 app.route('/api', onlyOfficeRoutes);
